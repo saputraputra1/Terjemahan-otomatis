@@ -1,0 +1,2565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <title>Voice Translator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root{
+      --bg:#060a12;--s1:rgba(255,255,255,.03);--s2:rgba(255,255,255,.07);
+      --b1:rgba(255,255,255,.08);--b2:rgba(255,255,255,.15);
+      --cyan:#00e5ff;--purple:#7c3aed;--green:#10b981;
+      --txt:#e2e8f0;--mute:#64748b;--dim:#94a3b8;
+      --red:#ef4444;--amber:#f59e0b;--r:14px;
+      --safe-top:env(safe-area-inset-top,0px);
+      --safe-bot:env(safe-area-inset-bottom,0px);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    html,body{min-height:100%;-webkit-text-size-adjust:100%}
+    body{
+      font-family:'Syne',sans-serif;background:var(--bg);color:var(--txt);
+      overflow-x:hidden;position:relative;
+      padding-top:var(--safe-top);padding-bottom:var(--safe-bot);
+    }
+    body::before{
+      content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% -10%,rgba(0,229,255,.07) 0%,transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 110%,rgba(124,58,237,.08) 0%,transparent 60%);
+    }
+    .gbg{
+      position:fixed;inset:0;z-index:0;pointer-events:none;
+      background-image:linear-gradient(rgba(0,229,255,.025) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(0,229,255,.025) 1px,transparent 1px);
+      background-size:60px 60px;
+      -webkit-mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,#000 0%,transparent 100%);
+      mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,#000 0%,transparent 100%);
+    }
+    .page{position:relative;z-index:1;max-width:860px;margin:0 auto;padding:20px 16px 80px}
+
+    /* ── BROWSER WARN ── */
+    #browser-warn{
+      display:none;margin-bottom:16px;padding:14px 16px;
+      background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);
+      border-radius:12px;font-size:13px;font-family:'JetBrains Mono',monospace;
+      color:#fbbf24;line-height:1.6;
+    }
+    #browser-warn.show{display:block}
+    #browser-warn strong{color:#fde68a}
+
+    /* ── PERMISSION BANNER ── */
+    #perm-banner{
+      display:none;margin-bottom:16px;padding:14px 16px;
+      background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);
+      border-radius:12px;font-size:13px;font-family:'JetBrains Mono',monospace;
+      color:#fca5a5;line-height:1.6;
+    }
+    #perm-banner.show{display:block}
+    #perm-banner strong{display:block;margin-bottom:6px;font-size:14px;color:#f87171}
+
+    /* ── HEADER ── */
+    header{text-align:center;padding:36px 0 32px}
+    .logo{
+      width:48px;height:48px;border:1.5px solid var(--cyan);border-radius:14px;
+      display:grid;place-items:center;margin:0 auto 14px;
+      box-shadow:0 0 24px rgba(0,229,255,.3),inset 0 0 24px rgba(0,229,255,.05);
+      animation:logopulse 3s ease-in-out infinite;
+    }
+    @keyframes logopulse{
+      0%,100%{box-shadow:0 0 24px rgba(0,229,255,.3),inset 0 0 24px rgba(0,229,255,.05)}
+      50%{box-shadow:0 0 40px rgba(0,229,255,.5),inset 0 0 32px rgba(0,229,255,.1)}
+    }
+    header h1{
+      font-size:clamp(26px,6vw,42px);font-weight:800;letter-spacing:-1px;line-height:1.1;
+      background:linear-gradient(135deg,#fff 30%,var(--cyan) 65%,var(--purple) 100%);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    }
+    header p{margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--mute);letter-spacing:.06em}
+
+    /* ── CARD ── */
+    .card{
+      background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:24px;
+      -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+      transition:border-color .25s;
+    }
+    .card:hover{border-color:var(--b2)}
+    .ctitle{
+      font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:500;
+      letter-spacing:.14em;text-transform:uppercase;color:var(--cyan);
+      margin-bottom:18px;display:flex;align-items:center;gap:8px;
+    }
+    .ctitle::before{content:'';width:18px;height:1.5px;background:var(--cyan);flex-shrink:0}
+
+    /* ── FORM ── */
+    .stack{display:flex;flex-direction:column;gap:14px}
+    .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media(max-width:520px){.g2{grid-template-columns:1fr}}
+    .field{display:flex;flex-direction:column;gap:7px}
+    .lbl{font-size:10px;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+    input,select{
+      width:100%;padding:13px 14px;
+      background:rgba(255,255,255,.05);border:1px solid var(--b1);
+      border-radius:10px;color:var(--txt);font-family:'JetBrains Mono',monospace;
+      font-size:14px;outline:none;-webkit-appearance:none;appearance:none;
+      transition:border-color .2s,box-shadow .2s;
+      font-size:16px;
+    }
+    @media(min-width:480px){input,select{font-size:14px}}
+    input::placeholder{color:var(--mute)}
+    input:focus,select:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,229,255,.12)}
+    select{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:38px}
+    select option{background:#0f172a}
+
+    /* ── BUTTONS ── */
+    .btn{
+      display:inline-flex;align-items:center;justify-content:center;gap:8px;
+      padding:14px 22px;border-radius:10px;border:none;
+      font-family:'Syne',sans-serif;font-weight:700;font-size:14px;
+      letter-spacing:.02em;cursor:pointer;transition:all .18s;
+      -webkit-user-select:none;user-select:none;touch-action:manipulation;
+      position:relative;overflow:hidden;
+    }
+    .btn:active{transform:scale(.96)}
+    .btn:disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
+    .full{width:100%}
+    .bprimary{background:linear-gradient(135deg,var(--cyan),#0891b2);color:#000;box-shadow:0 4px 20px rgba(0,229,255,.25)}
+    .bprimary:hover{box-shadow:0 4px 30px rgba(0,229,255,.45)}
+    .bsecond{background:var(--s2);color:var(--txt);border:1px solid var(--b2)}
+    .bsecond:hover{background:rgba(255,255,255,.12)}
+    .bghost{background:transparent;color:var(--dim);border:1px solid var(--b1)}
+    .bghost:hover{border-color:var(--b2);color:var(--txt)}
+    .bdanger{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+    .bdanger:hover{background:rgba(239,68,68,.28)}
+    .bvideo{background:rgba(124,58,237,.15);color:#a78bfa;border:1px solid rgba(124,58,237,.3)}
+    .bvideo:hover{background:rgba(124,58,237,.28)}
+    .bvideo.active{background:linear-gradient(135deg,rgba(124,58,237,.4),rgba(0,229,255,.2));color:#fff;border-color:rgba(0,229,255,.4);box-shadow:0 0 20px rgba(0,229,255,.2)}
+
+    /* ── DIVIDER ── */
+    .div{display:flex;align-items:center;gap:14px;color:var(--mute);font-size:11px;font-family:'JetBrains Mono',monospace}
+    .div::before,.div::after{content:'';flex:1;height:1px;background:var(--b1)}
+
+    /* ── ROOM BADGE ── */
+    .rbadge{
+      display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
+      padding:14px 18px;background:rgba(0,229,255,.05);
+      border:1px solid rgba(0,229,255,.15);border-radius:12px;
+    }
+    .rbadge-l{display:flex;align-items:center;gap:12px}
+    .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:blink 2s ease-in-out infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+    .rid{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:500;color:var(--cyan);letter-spacing:.06em}
+    .langbadge{display:inline-flex;align-items:center;padding:4px 12px;background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);border-radius:20px;font-size:12px;color:#a78bfa;font-family:'JetBrains Mono',monospace}
+    .pcount{font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--mute)}
+
+    /* ── MIC AREA ── */
+    .mic-wrap{display:flex;flex-direction:column;align-items:center;padding:32px 20px 24px;gap:18px}
+    .mic-ring{position:relative;width:110px;height:110px;flex-shrink:0}
+    .mwave{
+      position:absolute;inset:-18px;border-radius:50%;
+      border:1.5px solid rgba(0,229,255,.18);
+      animation:ripple 2.6s ease-out infinite;opacity:0;pointer-events:none;
+    }
+    .mwave:nth-child(2){animation-delay:.85s}
+    .mwave:nth-child(3){animation-delay:1.7s}
+    @keyframes ripple{0%{transform:scale(.72);opacity:.55}100%{transform:scale(1.45);opacity:0}}
+    .mic-ring.on .mwave{border-color:rgba(0,229,255,.5)}
+    .mbtn{
+      position:relative;z-index:1;width:110px;height:110px;border-radius:50%;border:none;
+      background:linear-gradient(135deg,rgba(0,229,255,.14),rgba(124,58,237,.14));
+      border:1.5px solid var(--b2);cursor:pointer;display:grid;place-items:center;
+      transition:all .22s;box-shadow:0 0 30px rgba(0,229,255,.1);
+      touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+    }
+    .mbtn:hover{background:linear-gradient(135deg,rgba(0,229,255,.24),rgba(124,58,237,.24));transform:scale(1.04)}
+    .mbtn:active{transform:scale(.95)}
+    .mbtn.on{
+      background:linear-gradient(135deg,rgba(0,229,255,.28),rgba(124,58,237,.28));
+      border-color:var(--cyan);
+      box-shadow:0 0 55px rgba(0,229,255,.38),inset 0 0 22px rgba(0,229,255,.1);
+      animation:mpulse 1.3s ease-in-out infinite;
+    }
+    @keyframes mpulse{
+      0%,100%{box-shadow:0 0 55px rgba(0,229,255,.38),inset 0 0 22px rgba(0,229,255,.1)}
+      50%{box-shadow:0 0 75px rgba(0,229,255,.58),inset 0 0 32px rgba(0,229,255,.2)}
+    }
+    .mbtn svg{width:34px;height:34px;pointer-events:none}
+
+    /* ── WAVEFORM ── */
+    .wform{display:flex;align-items:center;gap:3px;height:34px;opacity:0;transition:opacity .3s}
+    .wform.on{opacity:1}
+    .wb{width:3px;background:var(--cyan);border-radius:2px;animation:wba .9s ease-in-out infinite}
+    .wb:nth-child(1){height:8px;animation-delay:0s}.wb:nth-child(2){height:20px;animation-delay:.1s}
+    .wb:nth-child(3){height:30px;animation-delay:.2s}.wb:nth-child(4){height:22px;animation-delay:.3s}
+    .wb:nth-child(5){height:14px;animation-delay:.4s}.wb:nth-child(6){height:28px;animation-delay:.5s}
+    .wb:nth-child(7){height:18px;animation-delay:.6s}.wb:nth-child(8){height:10px;animation-delay:.7s}
+    .wb:nth-child(9){height:26px;animation-delay:.05s}.wb:nth-child(10){height:12px;animation-delay:.15s}
+    @keyframes wba{0%,100%{transform:scaleY(.3);opacity:.5}50%{transform:scaleY(1);opacity:1}}
+
+    .mlbl{font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--mute);letter-spacing:.1em;text-align:center}
+    .mlbl.on{color:var(--cyan)}
+
+    /* ── INTERIM ── */
+    .interim{
+      width:100%;min-height:46px;padding:13px 16px;
+      background:rgba(0,229,255,.04);border:1px dashed rgba(0,229,255,.2);
+      border-radius:10px;font-family:'JetBrains Mono',monospace;
+      font-size:14px;color:var(--dim);font-style:italic;display:none;
+    }
+    .interim.show{display:block}
+
+    /* ── STATUS ROW ── */
+    .srow{
+      display:flex;align-items:center;gap:8px;
+      padding:10px 14px;border-radius:10px;
+      font-size:12px;font-family:'JetBrains Mono',monospace;
+    }
+    .srow.info{background:rgba(0,229,255,.06);border:1px solid rgba(0,229,255,.15);color:var(--cyan)}
+    .srow.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);color:#fbbf24}
+    .srow.err{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#fca5a5}
+
+    /* ── CONVERSATION ── */
+    .ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+    .clog{
+      display:flex;flex-direction:column;gap:12px;
+      max-height:420px;overflow-y:auto;padding-right:4px;
+      scroll-behavior:smooth;overscroll-behavior:contain;
+      -webkit-overflow-scrolling:touch;
+    }
+    .clog::-webkit-scrollbar{width:3px}
+    .clog::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+
+    /* ── BUBBLE ── */
+    .bub{display:flex;gap:12px;animation:sup .28s ease-out}
+    @keyframes sup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    .bub.me{flex-direction:row-reverse}
+    .av{width:32px;height:32px;flex-shrink:0;border-radius:9px;display:grid;place-items:center;font-size:13px;font-weight:700}
+    .me .av{background:rgba(0,229,255,.15);border:1px solid rgba(0,229,255,.3);color:var(--cyan)}
+    .they .av{background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);color:#a78bfa}
+    .bc{flex:1;max-width:88%}
+    .me .bc{display:flex;flex-direction:column;align-items:flex-end}
+    .bm{display:flex;align-items:center;gap:7px;margin-bottom:6px;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--mute)}
+    .me .bm{flex-direction:row-reverse}
+    .bo{padding:11px 14px;border-radius:11px;font-size:14px;line-height:1.55;max-width:100%;word-break:break-word}
+    .me .bo{background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.2);border-bottom-right-radius:3px}
+    .they .bo{background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.2);border-bottom-left-radius:3px}
+    .bt{
+      margin-top:5px;padding:9px 13px;border-radius:9px;font-size:13px;line-height:1.55;
+      font-family:'JetBrains Mono',monospace;color:var(--dim);
+      max-width:100%;word-break:break-word;
+      background:rgba(255,255,255,.03);border:1px solid var(--b1);
+    }
+    .btl{font-size:10px;color:var(--mute);letter-spacing:.08em;margin-bottom:3px}
+    .tag{padding:2px 7px;background:rgba(255,255,255,.05);border:1px solid var(--b1);border-radius:5px;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--mute)}
+
+    /* ── EMPTY ── */
+    .empty{text-align:center;padding:44px 20px;color:var(--mute);font-size:13px;font-family:'JetBrains Mono',monospace;line-height:1.7}
+    .empty .ico{font-size:34px;margin-bottom:12px;opacity:.35}
+
+    /* ── TOAST ── */
+    #toasts{position:fixed;bottom:max(24px,var(--safe-bot));right:16px;z-index:9999;display:flex;flex-direction:column;gap:9px;pointer-events:none;max-width:calc(100vw - 32px)}
+    .toast{
+      padding:11px 18px;border-radius:10px;font-size:12px;font-family:'JetBrains Mono',monospace;
+      -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+      animation:tin .25s ease,tout .3s ease 3.8s forwards;
+      pointer-events:auto;word-break:break-word;max-width:320px;
+    }
+    .toast.ok{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.35);color:#34d399}
+    .toast.err{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.35);color:#fca5a5}
+    .toast.inf{background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.25);color:var(--cyan)}
+    .toast.warn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:#fbbf24}
+    @keyframes tin{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:translateX(0)}}
+    @keyframes tout{from{opacity:1}to{opacity:0;pointer-events:none}}
+
+    /* ── SPINNER ── */
+    .spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.2);border-top-color:currentColor;border-radius:50%;animation:spi .65s linear infinite;flex-shrink:0;display:inline-block}
+    @keyframes spi{to{transform:rotate(360deg)}}
+
+    /* UTILS */
+    .hidden{display:none!important}
+    .mt3{margin-top:12px}.mt4{margin-top:16px}
+    @media(max-width:420px){.page{padding:14px 12px 80px}.card{padding:18px 14px}}
+
+    /* ══ ACCESS GATE ══ */
+    #access-gate{
+      position:fixed;inset:0;z-index:99999;
+      display:none;align-items:center;justify-content:center;
+      padding:16px;
+      background:rgba(4,7,14,.92);
+      -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+    }
+    #access-gate.show{display:flex}
+    #access-gate::before{
+      content:'';position:absolute;inset:0;pointer-events:none;
+      background:
+        radial-gradient(ellipse 70% 50% at 25% 15%,rgba(0,229,255,.1) 0%,transparent 60%),
+        radial-gradient(ellipse 55% 45% at 75% 85%,rgba(124,58,237,.12) 0%,transparent 60%);
+    }
+    #access-gate .gbg{position:absolute}
+    .gate-box{
+      position:relative;z-index:1;
+      width:100%;max-width:440px;
+      max-height:92vh;overflow-y:auto;
+      background:rgba(10,16,30,.97);
+      border:1px solid rgba(0,229,255,.22);
+      border-radius:22px;
+      padding:32px 28px 28px;
+      -webkit-backdrop-filter:blur(40px);backdrop-filter:blur(40px);
+      box-shadow:0 0 80px rgba(0,229,255,.1),0 40px 100px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.06);
+      animation:gatein .45s cubic-bezier(.22,.68,0,1.1);
+      scrollbar-width:none;
+    }
+    .gate-box::-webkit-scrollbar{display:none}
+    @keyframes gatein{from{opacity:0;transform:translateY(28px) scale(.96)}to{opacity:1;transform:none}}
+    @keyframes gateout{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(.97);pointer-events:none}}
+    .gate-logo{
+      width:54px;height:54px;border:1.5px solid var(--cyan);border-radius:16px;
+      display:grid;place-items:center;margin:0 auto 18px;
+      box-shadow:0 0 32px rgba(0,229,255,.38),inset 0 0 22px rgba(0,229,255,.08);
+      animation:logopulse 3s ease-in-out infinite;
+    }
+    .gate-title{
+      text-align:center;font-size:24px;font-weight:800;letter-spacing:-.6px;line-height:1.15;
+      background:linear-gradient(135deg,#fff 25%,var(--cyan) 60%,var(--purple) 100%);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+      margin-bottom:5px;
+    }
+    .gate-sub{
+      text-align:center;font-family:'JetBrains Mono',monospace;font-size:11px;
+      color:var(--mute);letter-spacing:.07em;margin-bottom:24px;
+    }
+    /* ── banners ── */
+    .gate-banner{
+      padding:12px 14px;border-radius:12px;
+      font-family:'JetBrains Mono',monospace;font-size:12px;
+      text-align:center;margin-bottom:14px;line-height:1.6;display:none;
+    }
+    .gate-banner.warn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.28);color:#fbbf24}
+    .gate-banner.err{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.28);color:#fca5a5}
+    .gate-banner.ok{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.28);color:#34d399}
+    .gate-banner.show{display:block}
+    /* ── trial btn ── */
+    #trial-btn{
+      width:100%;padding:16px;border:none;border-radius:14px;
+      background:linear-gradient(135deg,#059669,#10b981,#34d399);color:#fff;
+      font-family:'Syne',sans-serif;font-weight:800;font-size:15px;
+      letter-spacing:.03em;cursor:pointer;
+      box-shadow:0 4px 24px rgba(16,185,129,.35),0 0 0 1px rgba(16,185,129,.2);
+      transition:all .2s;margin-bottom:12px;
+      display:flex;align-items:center;justify-content:center;gap:9px;
+    }
+    #trial-btn:hover{box-shadow:0 6px 34px rgba(16,185,129,.55);transform:translateY(-1px)}
+    #trial-btn:active{transform:scale(.97)}
+    #trial-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+    .trial-badge{
+      font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:400;
+      background:rgba(255,255,255,.2);padding:2px 8px;border-radius:20px;letter-spacing:.08em;
+    }
+    /* ── divider ── */
+    .gate-divider{
+      display:flex;align-items:center;gap:12px;
+      color:var(--mute);font-size:10px;font-family:'JetBrains Mono',monospace;
+      margin:18px 0;
+    }
+    .gate-divider::before,.gate-divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.07)}
+    /* ── voucher section ── */
+    .gate-field{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+    .gate-lbl{font-size:10px;font-family:'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+    #gate-input{
+      width:100%;padding:14px 16px;
+      background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+      border-radius:12px;color:var(--txt);
+      font-family:'JetBrains Mono',monospace;font-size:15px;
+      letter-spacing:.1em;text-transform:uppercase;
+      outline:none;transition:border-color .2s,box-shadow .2s;
+      text-align:center;
+    }
+    #gate-input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,229,255,.12)}
+    #gate-input::placeholder{text-transform:none;letter-spacing:.04em;color:var(--mute)}
+    #gate-btn{
+      width:100%;padding:15px;border:none;border-radius:12px;
+      background:linear-gradient(135deg,var(--cyan),#0891b2);color:#000;
+      font-family:'Syne',sans-serif;font-weight:800;font-size:14px;
+      letter-spacing:.04em;cursor:pointer;
+      box-shadow:0 4px 20px rgba(0,229,255,.28);
+      transition:all .18s;margin-bottom:12px;
+    }
+    #gate-btn:hover{box-shadow:0 4px 32px rgba(0,229,255,.5);transform:translateY(-1px)}
+    #gate-btn:active{transform:scale(.97)}
+    #gate-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+    /* ── admin btn ── */
+    #admin-btn{
+      width:100%;padding:14px;border-radius:12px;
+      background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.28);
+      color:#a78bfa;font-family:'Syne',sans-serif;font-weight:700;font-size:14px;
+      text-align:center;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+      transition:all .18s;text-decoration:none;margin-bottom:0;
+    }
+    #admin-btn:hover{background:rgba(124,58,237,.22);border-color:rgba(124,58,237,.5)}
+    /* ── message ── */
+    #gate-msg{
+      text-align:center;font-family:'JetBrains Mono',monospace;font-size:12px;
+      min-height:20px;transition:all .2s;margin-top:12px;line-height:1.6;padding:0 4px;
+    }
+    #gate-msg.ok{color:#34d399}
+    #gate-msg.err{color:#fca5a5}
+    #gate-msg.warn{color:#fbbf24}
+    /* ── loading overlay inside gate ── */
+    .gate-loading{
+      position:absolute;inset:0;border-radius:22px;
+      background:rgba(6,10,18,.75);
+      display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;
+      z-index:10;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+    }
+    .gate-loading.show{display:flex}
+    .gate-loading p{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--dim);letter-spacing:.08em}
+    /* ── expired screen ── */
+    #gate-expired-screen{display:none;text-align:center}
+    #gate-expired-screen.show{display:block}
+    .expired-icon{font-size:44px;margin-bottom:16px}
+    .expired-title{
+      font-size:20px;font-weight:800;letter-spacing:-.4px;
+      background:linear-gradient(135deg,#fbbf24,#f59e0b);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+      margin-bottom:8px;
+    }
+    .expired-sub{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--mute);margin-bottom:22px;line-height:1.6}
+    /* fingerprint info */
+    .gate-fp-info{
+      margin-top:16px;padding:10px 14px;
+      background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+      border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:10px;
+      color:var(--mute);text-align:center;letter-spacing:.06em;
+    }
+    /* ── Voucher disabled message ── */
+    #voucher-disabled-msg{
+      display:none;padding:13px 16px;
+      background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.22);
+      border-radius:12px;font-family:'JetBrains Mono',monospace;font-size:12px;
+      color:#fbbf24;text-align:center;line-height:1.65;margin-bottom:12px;
+    }
+    #voucher-disabled-msg.show{display:block}
+    /* ── Trial expiry warning bar (in-app, top of page) ── */
+    #trial-warning-bar{
+      display:none;position:fixed;top:0;left:0;right:0;z-index:9990;
+      padding:0;
+      -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    }
+    #trial-warning-bar.show{display:block}
+    #trial-warning-bar .twb-inner{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;
+      padding:11px 18px;
+      background:linear-gradient(90deg,rgba(245,158,11,.18),rgba(239,68,68,.14));
+      border-bottom:1px solid rgba(245,158,11,.35);
+      flex-wrap:wrap;
+    }
+    #trial-warning-bar .twb-left{
+      display:flex;align-items:center;gap:10px;flex:1;min-width:0;
+    }
+    #trial-warning-bar .twb-icon{font-size:18px;flex-shrink:0}
+    #trial-warning-bar .twb-text{
+      font-family:'JetBrains Mono',monospace;font-size:12px;color:#fbbf24;line-height:1.55;
+    }
+    #trial-warning-bar .twb-text strong{color:#fde68a;display:block;font-size:13px;margin-bottom:1px}
+    #trial-warning-bar .twb-countdown{
+      font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;
+      color:#fbbf24;white-space:nowrap;flex-shrink:0;
+      padding:5px 12px;background:rgba(245,158,11,.15);
+      border:1px solid rgba(245,158,11,.3);border-radius:8px;
+    }
+    #trial-warning-bar .twb-close{
+      background:transparent;border:none;cursor:pointer;
+      color:rgba(245,158,11,.5);font-size:16px;padding:4px;flex-shrink:0;
+      transition:color .2s;line-height:1;
+    }
+    #trial-warning-bar .twb-close:hover{color:#fbbf24}
+
+    /* ══════════════════════════════════════════════
+       VIDEO CALL PANEL
+    ══════════════════════════════════════════════ */
+    #vcall-panel{
+      background:rgba(6,10,18,.95);
+      border:1px solid rgba(0,229,255,.2);
+      border-radius:18px;
+      overflow:hidden;
+      -webkit-backdrop-filter:blur(30px);backdrop-filter:blur(30px);
+      box-shadow:0 0 60px rgba(0,229,255,.07),0 30px 80px rgba(0,0,0,.6);
+      animation:vcallin .35s cubic-bezier(.22,.68,0,1.2);
+    }
+    @keyframes vcallin{
+      from{opacity:0;transform:translateY(-14px) scale(.97)}
+      to{opacity:1;transform:translateY(0) scale(1)}
+    }
+
+    /* ── Video header bar ── */
+    .vc-header{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:14px 18px;border-bottom:1px solid rgba(255,255,255,.06);
+      background:rgba(0,229,255,.03);
+    }
+    .vc-header-l{display:flex;align-items:center;gap:10px}
+    .vc-live-dot{
+      width:8px;height:8px;border-radius:50%;
+      background:#ef4444;box-shadow:0 0 10px #ef4444;
+      animation:blink 1s ease-in-out infinite;
+    }
+    .vc-title{font-size:11px;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;color:var(--dim)}
+    .vc-pcount{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--mute)}
+
+    /* ── Video grid ── */
+    .vgrid{
+      display:grid;gap:3px;padding:3px;
+      min-height:240px;max-height:420px;
+      background:#000;
+    }
+    .vgrid.p1{grid-template-columns:1fr}
+    .vgrid.p2{grid-template-columns:1fr 1fr}
+    .vgrid.p3{grid-template-columns:1fr 1fr;grid-template-rows:auto auto}
+    .vgrid.p4{grid-template-columns:1fr 1fr}
+    @media(max-width:480px){
+      .vgrid.p2,.vgrid.p3,.vgrid.p4{grid-template-columns:1fr}
+    }
+
+    /* ── Video tile ── */
+    .vtile{
+      position:relative;background:#0a0f1a;
+      border-radius:10px;overflow:hidden;
+      aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;
+      transition:box-shadow .2s;
+    }
+    .vtile.local{border:1.5px solid rgba(0,229,255,.25)}
+    .vtile.remote{border:1.5px solid rgba(124,58,237,.2)}
+    .vtile.speaking{
+      border-color:var(--cyan) !important;
+      box-shadow:0 0 0 2px rgba(0,229,255,.3),inset 0 0 30px rgba(0,229,255,.05);
+    }
+
+    .vtile video{
+      width:100%;height:100%;object-fit:cover;display:block;
+      background:#000;
+    }
+
+    /* Camera off placeholder */
+    .vcam-off{
+      position:absolute;inset:0;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;gap:10px;
+      background:linear-gradient(135deg,rgba(10,15,26,.9),rgba(20,10,40,.9));
+    }
+    .vcam-av{
+      width:54px;height:54px;border-radius:16px;
+      display:grid;place-items:center;
+      font-size:20px;font-weight:700;
+      background:rgba(0,229,255,.1);border:1.5px solid rgba(0,229,255,.25);
+      color:var(--cyan);font-family:'JetBrains Mono',monospace;
+    }
+    .vcam-av.remote-av{background:rgba(124,58,237,.1);border-color:rgba(124,58,237,.25);color:#a78bfa}
+    .vcam-name{font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--dim)}
+
+    /* Tile overlay (name + lang badge) */
+    .vtile-overlay{
+      position:absolute;top:0;left:0;right:0;
+      padding:8px 10px;
+      display:flex;align-items:center;justify-content:space-between;
+      background:linear-gradient(180deg,rgba(0,0,0,.65) 0%,transparent 100%);
+      pointer-events:none;
+    }
+    .vtile-name{font-size:11px;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,.85);font-weight:500}
+    .vtile-lang{
+      font-size:10px;font-family:'JetBrains Mono',monospace;
+      padding:2px 7px;border-radius:8px;
+      background:rgba(0,0,0,.5);color:var(--dim);
+      border:1px solid rgba(255,255,255,.1);
+    }
+    .vtile-muted{
+      position:absolute;top:8px;left:50%;transform:translateX(-50%);
+      background:rgba(239,68,68,.25);border:1px solid rgba(239,68,68,.4);
+      border-radius:6px;padding:2px 8px;
+      font-size:10px;font-family:'JetBrains Mono',monospace;color:#fca5a5;
+    }
+
+    /* ── SUBTITLE OVERLAY ── */
+    .vsub{
+      position:absolute;bottom:0;left:0;right:0;
+      padding:0 12px 10px;
+      pointer-events:none;
+      display:flex;flex-direction:column;align-items:center;gap:4px;
+    }
+    .vsub-text{
+      max-width:90%;text-align:center;
+      padding:5px 13px;border-radius:8px;
+      font-size:13px;font-family:'JetBrains Mono',monospace;
+      line-height:1.5;word-break:break-word;
+      transition:opacity .3s;
+    }
+    .vsub-text.original{
+      background:rgba(0,0,0,.72);color:rgba(255,255,255,.9);
+      border:1px solid rgba(255,255,255,.1);
+    }
+    .vsub-text.translated{
+      background:rgba(0,229,255,.12);color:var(--cyan);
+      border:1px solid rgba(0,229,255,.25);
+      font-size:12px;
+    }
+    .vsub-text.interim-sub{
+      background:rgba(0,0,0,.55);color:rgba(255,255,255,.55);
+      border:1px solid rgba(255,255,255,.07);
+      font-style:italic;font-size:12px;
+    }
+
+    /* ── VIDEO CONTROLS ── */
+    .vc-controls{
+      display:flex;align-items:center;justify-content:center;gap:10px;
+      padding:14px 18px;border-top:1px solid rgba(255,255,255,.06);
+      background:rgba(0,0,0,.3);flex-wrap:wrap;
+    }
+    .vc-btn{
+      display:inline-flex;align-items:center;justify-content:center;gap:7px;
+      padding:10px 16px;border-radius:10px;border:none;cursor:pointer;
+      font-family:'Syne',sans-serif;font-weight:700;font-size:13px;
+      transition:all .18s;touch-action:manipulation;
+    }
+    .vc-btn:active{transform:scale(.95)}
+    .vc-btn svg{width:16px;height:16px;flex-shrink:0}
+    .vc-btn.cam{background:rgba(255,255,255,.07);color:var(--txt);border:1px solid var(--b2)}
+    .vc-btn.cam:hover{background:rgba(255,255,255,.14)}
+    .vc-btn.cam.off{background:rgba(245,158,11,.1);color:#fbbf24;border-color:rgba(245,158,11,.3)}
+    .vc-btn.mic-vc{background:rgba(255,255,255,.07);color:var(--txt);border:1px solid var(--b2)}
+    .vc-btn.mic-vc:hover{background:rgba(255,255,255,.14)}
+    .vc-btn.mic-vc.off{background:rgba(239,68,68,.1);color:#fca5a5;border-color:rgba(239,68,68,.3)}
+    .vc-btn.sub-toggle{background:rgba(0,229,255,.07);color:var(--cyan);border:1px solid rgba(0,229,255,.2)}
+    .vc-btn.sub-toggle:hover{background:rgba(0,229,255,.14)}
+    .vc-btn.sub-toggle.off{background:rgba(255,255,255,.04);color:var(--mute);border-color:var(--b1)}
+    .vc-btn.end{background:rgba(239,68,68,.2);color:#f87171;border:1px solid rgba(239,68,68,.35)}
+    .vc-btn.end:hover{background:rgba(239,68,68,.35)}
+
+    /* ── Subtitle bar below video (global) ── */
+    #sub-bar{
+      display:none;padding:12px 18px;
+      background:rgba(0,229,255,.04);border-top:1px solid rgba(0,229,255,.12);
+    }
+    #sub-bar.show{display:block}
+    .sub-bar-inner{
+      display:flex;flex-direction:column;gap:4px;
+      font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.6;
+    }
+    .sub-orig{color:var(--dim);font-style:italic}
+    .sub-orig::before{content:'🎙 ';opacity:.6}
+    .sub-trans{color:var(--cyan)}
+    .sub-trans::before{content:'↳ '}
+  </style>
+</head>
+<body>
+<!-- ══ TRIAL EXPIRY WARNING BAR ══ -->
+<div id="trial-warning-bar">
+  <div class="twb-inner">
+    <div class="twb-left">
+      <span class="twb-icon">⚠️</span>
+      <div class="twb-text">
+        <strong>Trial Anda akan segera habis!</strong>
+        Silakan beli voucher untuk melanjutkan penggunaan.
+      </div>
+    </div>
+    <div class="twb-countdown" id="twb-countdown">--:--:--</div>
+    <button class="twb-close" onclick="dismissTrialWarning()" title="Tutup">✕</button>
+  </div>
+</div>
+
+<!-- ══ ACCESS GATE OVERLAY ══ -->
+<div id="access-gate">
+  <div class="gbg"></div>
+  <div class="gate-box">
+
+    <!-- Loading spinner -->
+    <div class="gate-loading" id="gate-loading">
+      <div class="spin" style="width:28px;height:28px;border-width:3px;border-top-color:var(--cyan)"></div>
+      <p id="gate-loading-msg">Memeriksa akses…</p>
+    </div>
+
+    <!-- Logo -->
+    <div class="gate-logo">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00e5ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    </div>
+    <div class="gate-title">Akses Premium</div>
+    <div class="gate-sub">// voice translator · secure access</div>
+
+    <!-- Incognito banner -->
+    <div class="gate-banner err" id="gate-incognito">
+      🕵️ Mode private/incognito tidak diizinkan untuk menggunakan trial.<br/>Gunakan browser normal untuk melanjutkan.
+    </div>
+
+    <!-- Expired banner -->
+    <div class="gate-banner warn" id="gate-expired-banner">
+      ⚠️ Trial kamu sudah habis. Masukkan voucher atau hubungi admin.
+    </div>
+
+    <!-- Expired screen (full) -->
+    <div id="gate-expired-screen">
+      <div class="expired-icon">⏰</div>
+      <div class="expired-title">TRIAL ANDA SUDAH HABIS</div>
+      <div class="expired-sub">Masa trial 24 jam kamu telah berakhir.<br/>Aktifkan akses premium untuk terus menggunakan.</div>
+    </div>
+
+    <!-- Trial section -->
+    <div id="trial-section">
+      <button id="trial-btn" onclick="claimTrial()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+        Ambil Trial Gratis 1 Hari
+        <span class="trial-badge">24 JAM</span>
+      </button>
+    </div>
+
+    <div class="gate-divider">atau masukkan voucher</div>
+
+    <!-- Voucher section -->
+    <div id="voucher-section">
+      <div class="gate-field">
+        <label class="gate-lbl" for="gate-input">Kode Voucher / Akses</label>
+        <input id="gate-input" type="text" placeholder="Contoh: PREMIUM30 atau VIP-4F9K2P" autocomplete="off" spellcheck="false"/>
+      </div>
+      <button id="gate-btn" onclick="verifyVoucher()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Verifikasi &amp; Masuk
+      </button>
+    </div>
+
+    <!-- Voucher disabled message -->
+    <div id="voucher-disabled-msg">
+      🔒 Penjualan voucher sedang ditutup oleh admin.<br/>Hubungi admin untuk informasi lebih lanjut.
+    </div>
+
+    <!-- Admin contact -->
+    <a id="admin-btn" href="#" target="_blank" rel="noopener">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      Hubungi Admin
+    </a>
+
+    <!-- Message -->
+    <div id="gate-msg"></div>
+
+    <!-- Fingerprint info (subtle) -->
+    <div class="gate-fp-info" id="gate-fp-display" style="display:none">
+      Device ID: <span id="gate-fp-short">—</span>
+    </div>
+
+  </div>
+</div>
+<div class="gbg"></div>
+<div id="toasts"></div>
+
+<div class="page">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00e5ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/>
+        <path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/>
+      </svg>
+    </div>
+    <h1>Voice Translator</h1>
+    <p>// realtime · multilingual · neural bridge</p>
+  </header>
+
+  <!-- BROWSER WARNING -->
+  <div id="browser-warn">
+    <strong>⚠️ Limited browser support detected</strong>
+    Voice recognition requires <strong>Chrome</strong> or <strong>Edge</strong> on Android/Desktop,
+    or <strong>Safari</strong> on iOS/macOS. Firefox does not support the Web Speech API.
+    <br/>Please switch to a supported browser for full functionality.
+  </div>
+
+  <!-- MIC PERMISSION BANNER -->
+  <div id="perm-banner">
+    <strong>🔒 Microphone Permission Required</strong>
+    To fix this:<br/>
+    • <strong>Android Chrome:</strong> tap the lock 🔒 in address bar → Site settings → Microphone → Allow<br/>
+    • <strong>iOS Safari:</strong> Settings app → Safari → Microphone → Allow<br/>
+    • <strong>Desktop:</strong> click the 🔒 or 🎤 icon in the address bar → Allow microphone<br/>
+    Then refresh this page.
+  </div>
+
+  <!-- LOBBY -->
+  <div id="lobby" class="stack">
+    <div class="card">
+      <div class="ctitle">create session</div>
+      <div class="stack">
+        <div class="field">
+          <span class="lbl">your language</span>
+          <select id="cr-lang" onchange="updateLangDisplay()">
+            <option value="en">🇬🇧 English</option>
+            <option value="id">🇮🇩 Indonesian</option>
+            <option value="es">🇪🇸 Spanish</option>
+            <option value="fr">🇫🇷 French</option>
+            <option value="de">🇩🇪 German</option>
+            <option value="ja">🇯🇵 Japanese</option>
+            <option value="zh">🇨🇳 Chinese</option>
+            <option value="ar">🇸🇦 Arabic</option>
+            <option value="hi">🇮🇳 Hindi</option>
+            <option value="ko">🇰🇷 Korean</option>
+            <option value="ru">🇷🇺 Russian</option>
+          </select>
+        </div>
+        <button class="btn bprimary full" id="cr-btn" onclick="createRoom()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Create Room
+        </button>
+      </div>
+    </div>
+
+    <div class="div">or join existing</div>
+
+    <div class="card">
+      <div class="ctitle">join session</div>
+      <div class="stack">
+        <div class="g2">
+          <div class="field">
+            <span class="lbl">room id</span>
+            <input type="text" id="join-id" placeholder="ROOM-83472" maxlength="12" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"/>
+          </div>
+          <div class="field">
+            <span class="lbl">your language</span>
+            <select id="jn-lang">
+              <option value="en">🇬🇧 English</option>
+              <option value="id">🇮🇩 Indonesian</option>
+              <option value="es">🇪🇸 Spanish</option>
+              <option value="fr">🇫🇷 French</option>
+              <option value="de">🇩🇪 German</option>
+              <option value="ja">🇯🇵 Japanese</option>
+              <option value="zh">🇨🇳 Chinese</option>
+              <option value="ar">🇸🇦 Arabic</option>
+              <option value="hi">🇮🇳 Hindi</option>
+              <option value="ko">🇰🇷 Korean</option>
+              <option value="ru">🇷🇺 Russian</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn bsecond full" id="jn-btn" onclick="joinRoom()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          Join Room
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVE ROOM STATUS -->
+  <div id="room-status" class="hidden mt4">
+    <div class="rbadge">
+      <div class="rbadge-l">
+        <div class="dot"></div>
+        <div>
+          <div style="font-size:10px;color:var(--mute);font-family:'JetBrains Mono',monospace;letter-spacing:.08em;margin-bottom:2px">CONNECTED · ROOM</div>
+          <div class="rid" id="a-rid">—</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+        <span class="langbadge" id="a-lang">—</span>
+        <span class="pcount" id="a-peers">1 user</span>
+        <!-- VIDEO CALL BUTTON -->
+        <button class="btn bvideo" id="vcall-toggle-btn" style="padding:9px 16px;font-size:13px" onclick="toggleVideoCall()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+          Video
+        </button>
+        <button class="btn bdanger" style="padding:9px 16px;font-size:13px" onclick="leaveRoom()">Leave</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TRANSLATOR -->
+  <div id="translator" class="hidden stack mt4">
+
+    <!-- ══ VIDEO CALL PANEL ══ -->
+    <div id="vcall-panel" class="hidden">
+      <!-- Header -->
+      <div class="vc-header">
+        <div class="vc-header-l">
+          <div class="vc-live-dot"></div>
+          <span class="vc-title">VIDEO CALL</span>
+          <span class="vc-pcount" id="vc-count">1 participant</span>
+        </div>
+        <span style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--mute)">subtitles auto</span>
+      </div>
+
+      <!-- Video grid -->
+      <div class="vgrid p1" id="vgrid"></div>
+
+      <!-- Subtitle bar (shows current global subtitles) -->
+      <div id="sub-bar">
+        <div class="sub-bar-inner">
+          <div class="sub-orig" id="sub-orig-text"></div>
+          <div class="sub-trans" id="sub-trans-text" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="vc-controls">
+        <button class="vc-btn cam" id="vc-cam-btn" onclick="toggleCamera()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          Camera
+        </button>
+        <button class="vc-btn mic-vc" id="vc-mic-btn" onclick="toggleMicInCall()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          Mic
+        </button>
+        <button class="vc-btn sub-toggle" id="vc-sub-btn" onclick="toggleSubtitles()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 15h3m4 0h3"/><path d="M7 11h10"/></svg>
+          Subtitles ON
+        </button>
+        <button class="vc-btn end" onclick="endVideoCall()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07C9.44 17.25 7.76 15.59 6.32 13.6a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 5.11 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L9.09 10.72a16 16 0 0 0 2.6 3.41l-1.01-1.01.44.44-.44-.44z"/><line x1="23" y1="1" x2="1" y2="23"/></svg>
+          End Call
+        </button>
+      </div>
+    </div>
+
+    <!-- MIC CARD -->
+    <div class="card">
+      <div class="mic-wrap">
+        <div class="mic-ring" id="mring">
+          <div class="mwave"></div>
+          <div class="mwave"></div>
+          <div class="mwave"></div>
+          <button class="mbtn" id="mbtn" onclick="toggleMic()" aria-label="Toggle microphone">
+            <svg id="icon-on" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+            <svg id="icon-off" class="hidden" viewBox="0 0 24 24" fill="none" stroke="var(--mute)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="1" y1="1" x2="23" y2="23"/>
+              <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/>
+              <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/>
+              <line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+          </button>
+        </div>
+        <div class="wform" id="wform">
+          <div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div>
+          <div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div>
+          <div class="wb"></div><div class="wb"></div>
+        </div>
+        <div class="mlbl" id="mlbl">TAP TO SPEAK</div>
+      </div>
+      <div class="interim hidden" id="interim"></div>
+    </div>
+
+    <!-- CONVERSATION CARD -->
+    <div class="card">
+      <div class="ch">
+        <div class="ctitle" style="margin-bottom:0">conversation</div>
+        <button class="btn bghost" style="padding:7px 13px;font-size:12px" onclick="clearLog()">Clear</button>
+      </div>
+      <div class="clog" id="clog">
+        <div class="empty" id="empty">
+          <div class="ico">💬</div>
+          Tap the mic and start speaking.<br/>Messages appear here instantly.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div><!-- /page -->
+
+<!-- Firebase compat SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+<script>
+/* ════════════════════════════════════════════════════
+   FIREBASE INIT
+════════════════════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey:"AIzaSyAQVIvZvxmYdcriHR8j0ormGzNRjGD0_no",
+  authDomain:"online--suit.firebaseapp.com",
+  databaseURL:"https://online--suit-default-rtdb.firebaseio.com",
+  projectId:"online--suit",
+  storageBucket:"online--suit.firebasestorage.app",
+  messagingSenderId:"463840835705",
+  appId:"1:463840835705:web:f490fd49851c0afb8dfca8"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+/* ════════════════════════════════════════════════════
+   CONSTANTS
+════════════════════════════════════════════════════ */
+const NAMES = {en:'English',id:'Indonesian',es:'Spanish',fr:'French',de:'German',ja:'Japanese',zh:'Chinese',ar:'Arabic',hi:'Hindi',ko:'Korean',ru:'Russian'};
+const FLAGS = {en:'🇬🇧',id:'🇮🇩',es:'🇪🇸',fr:'🇫🇷',de:'🇩🇪',ja:'🇯🇵',zh:'🇨🇳',ar:'🇸🇦',hi:'🇮🇳',ko:'🇰🇷',ru:'🇷🇺'};
+const BCP47 = {en:'en-US',id:'id-ID',es:'es-ES',fr:'fr-FR',de:'de-DE',ja:'ja-JP',zh:'zh-CN',ar:'ar-SA',hi:'hi-IN',ko:'ko-KR',ru:'ru-RU'};
+const ICE_SERVERS = [{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}];
+
+/* ════════════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════════════ */
+const ME         = 'u_' + Math.random().toString(36).substr(2,9);
+let room                  = null;
+let myLang                = 'en';
+let recognition           = null;
+let listening             = false;
+let msgRef                = null;
+let rendered              = new Set();
+let debTimer              = null;
+let joinTs                = 0;
+let restartTimer          = null;
+let ttsPlaying            = false;
+let wasListeningBeforeTTS = false;
+
+/* ════════════════════════════════════════════════════
+   VIDEO CALL STATE
+════════════════════════════════════════════════════ */
+let vcallActive     = false;     // am I in video call?
+let localStream     = null;      // my MediaStream
+let cameraOn        = true;      // camera toggle state
+let micInCallMuted  = false;     // mic toggle inside call
+let subtitlesOn     = true;      // subtitle toggle
+let peers           = {};        // peerId → {pc, remoteStream, lang}
+let vcallPresRef    = null;      // Firebase presence ref
+let vcallOfferRef   = null;      // Firebase offers listener
+let vcallAnsRef     = null;      // Firebase answers listener
+let vcallIceRef     = null;      // Firebase ICE listener
+let subClearTimers  = {};        // peerId → timeout for clearing subtitles
+let typingRef       = null;      // Firebase typing/subtitle ref
+
+/* ════════════════════════════════════════════════════
+   BROWSER COMPATIBILITY CHECK
+════════════════════════════════════════════════════ */
+const SR_API = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+(function checkBrowser(){
+  if(!SR_API){
+    document.getElementById('browser-warn').classList.add('show');
+  }
+})();
+
+/* ════════════════════════════════════════════════════
+   TOAST
+════════════════════════════════════════════════════ */
+function toast(msg, type){
+  type = type||'inf';
+  var c = document.getElementById('toasts');
+  var el = document.createElement('div');
+  el.className = 'toast '+type;
+  el.textContent = msg;
+  c.appendChild(el);
+  setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 4300);
+}
+
+/* ════════════════════════════════════════════════════
+   ROOM — CREATE
+════════════════════════════════════════════════════ */
+function genId(){ return 'ROOM-'+Math.floor(10000+Math.random()*90000); }
+
+async function createRoom(){
+  var lang = document.getElementById('cr-lang').value;
+  myLang = lang;
+  var id = genId();
+  var btn = document.getElementById('cr-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spin"></div> Creating…';
+  try{
+    await db.ref('rooms/'+id).set({
+      created: firebase.database.ServerValue.TIMESTAMP,
+      users: {[ME]:{lang:lang,online:true,joined:firebase.database.ServerValue.TIMESTAMP}},
+      messages:{}
+    });
+    enterRoom(id, lang);
+    toast('Room '+id+' created!','ok');
+  }catch(e){
+    toast('Firebase error: '+e.message,'err');
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg> Create Room';
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   ROOM — JOIN
+════════════════════════════════════════════════════ */
+async function joinRoom(){
+  var id   = document.getElementById('join-id').value.trim().toUpperCase();
+  var lang = document.getElementById('jn-lang').value;
+  if(!id){ toast('Enter a Room ID first.','err'); return; }
+  var btn = document.getElementById('jn-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spin"></div> Joining…';
+  try{
+    var snap = await db.ref('rooms/'+id).once('value');
+    if(!snap.exists()){ toast('Room "'+id+'" not found.','err'); return; }
+    myLang = lang;
+    await db.ref('rooms/'+id+'/users/'+ME).set({lang:lang,online:true,joined:firebase.database.ServerValue.TIMESTAMP});
+    enterRoom(id, lang);
+    toast('Joined '+id+'!','ok');
+  }catch(e){
+    toast('Firebase error: '+e.message,'err');
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> Join Room';
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   ROOM — ENTER
+════════════════════════════════════════════════════ */
+function enterRoom(id, lang){
+  room    = id;
+  myLang  = lang;
+  joinTs  = Date.now();
+  rendered.clear();
+
+  document.getElementById('lobby').classList.add('hidden');
+  document.getElementById('room-status').classList.remove('hidden');
+  document.getElementById('translator').classList.remove('hidden');
+  document.getElementById('a-rid').textContent  = id;
+  document.getElementById('a-lang').textContent = (FLAGS[lang]||'')+' '+(NAMES[lang]||lang);
+
+  db.ref('rooms/'+id+'/users/'+ME+'/online').onDisconnect().set(false);
+
+  db.ref('rooms/'+id+'/users').on('value', function(s){
+    if(!s.exists()) return;
+    var cnt = Object.values(s.val()).filter(function(u){return u.online;}).length;
+    document.getElementById('a-peers').textContent = cnt+' user'+(cnt!==1?'s':'');
+  });
+
+  if(msgRef){ msgRef.off(); }
+  msgRef = db.ref('rooms/'+id+'/messages');
+  msgRef.orderByChild('timestamp').on('child_added', async function(snap){
+    var key  = snap.key;
+    var data = snap.val();
+    if(!data || !data.text) return;
+    if(rendered.has(key)) return;
+    rendered.add(key);
+    if(data.timestamp && data.timestamp < joinTs - 2000) return;
+    await processMsg(key, data);
+  }, function(err){
+    toast('Listener error: '+err.message,'err');
+  });
+}
+
+/* ════════════════════════════════════════════════════
+   ROOM — LEAVE
+════════════════════════════════════════════════════ */
+function leaveRoom(){
+  if(!room) return;
+  if(listening) stopListening();
+  if(vcallActive) endVideoCall();
+  if(msgRef){ msgRef.off(); msgRef = null; }
+  db.ref('rooms/'+room+'/users/'+ME+'/online').set(false);
+  db.ref('rooms/'+room+'/users').off();
+  room = null;
+  rendered.clear();
+
+  document.getElementById('lobby').classList.remove('hidden');
+  document.getElementById('room-status').classList.add('hidden');
+  document.getElementById('translator').classList.add('hidden');
+  resetLog();
+}
+
+/* ════════════════════════════════════════════════════
+   PROCESS INCOMING MESSAGE
+════════════════════════════════════════════════════ */
+async function processMsg(key, data){
+  var isMine     = (data.sender === ME);
+  var senderLang = data.senderLang || myLang;
+  var translated = '';
+
+  if(senderLang !== myLang){
+    translated = await translateText(data.text, senderLang, myLang);
+  }
+
+  renderBubble({key:key, senderLang:senderLang, text:data.text, translated:translated, ts:data.timestamp, isMine:isMine, senderId:data.sender});
+
+  // Show as subtitle on remote video tile
+  if(!isMine && vcallActive && subtitlesOn){
+    showRemoteSubtitle(data.sender, data.text, translated, senderLang);
+  }
+
+  if(!isMine && translated){
+    speakText(translated, myLang);
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   SEND MESSAGE
+════════════════════════════════════════════════════ */
+async function sendMsg(text){
+  if(!room || !text.trim()) return;
+  try{
+    await db.ref('rooms/'+room+'/messages').push({
+      sender:     ME,
+      senderLang: myLang,
+      text:       text.trim(),
+      timestamp:  firebase.database.ServerValue.TIMESTAMP
+    });
+  }catch(e){
+    toast('Send failed: '+e.message,'err');
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   TRANSLATION — 3-API Fallback System
+   API 1 (utama)   : Google Translate (translate.googleapis.com)
+   API 2 (cadangan): LibreTranslate   (libretranslate.de)
+   API 3 (terakhir): Lingva Translate (lingva.ml)
+════════════════════════════════════════════════════ */
+
+/* ── Normalise lang code: strip region suffix for APIs that need bare codes ── */
+function _baseLang(code){
+  if(!code) return code;
+  return code.split('-')[0].toLowerCase();
+}
+
+/* ── API 1: Google Translate (unofficial endpoint, no key needed) ── */
+async function _translateGoogle(text, from, to){
+  var params = new URLSearchParams({
+    client : 'gtx',
+    sl     : _baseLang(from),
+    tl     : _baseLang(to),
+    dt     : 't',
+    q      : text.trim()
+  });
+  var res = await fetch('https://translate.googleapis.com/translate_a/single?' + params.toString());
+  if(!res.ok) throw new Error('Google API HTTP ' + res.status);
+  var j = await res.json();
+  /* Response format: [[["translated","original",null,null,…],…],…] */
+  if(Array.isArray(j) && Array.isArray(j[0])){
+    var parts = j[0].map(function(s){ return (s && s[0]) ? s[0] : ''; });
+    var result = parts.join('').trim();
+    if(result) return result;
+  }
+  throw new Error('Google API: empty result');
+}
+
+/* ── API 2: LibreTranslate (cadangan) ── */
+async function _translateLibre(text, from, to){
+  var res = await fetch('https://libretranslate.de/translate', {
+    method  : 'POST',
+    headers : { 'Content-Type': 'application/json' },
+    body    : JSON.stringify({
+      q      : text.trim(),
+      source : _baseLang(from),
+      target : _baseLang(to),
+      format : 'text'
+    })
+  });
+  if(!res.ok) throw new Error('LibreTranslate HTTP ' + res.status);
+  var j = await res.json();
+  if(j && j.translatedText){
+    var result = j.translatedText.trim();
+    if(result) return result;
+  }
+  throw new Error('LibreTranslate: empty result');
+}
+
+/* ── API 3: Lingva Translate (cadangan terakhir) ── */
+async function _translateLingva(text, from, to){
+  var sl = _baseLang(from) || 'auto';
+  var tl = _baseLang(to);
+  var url = 'https://lingva.ml/api/v1/' +
+    encodeURIComponent(sl) + '/' +
+    encodeURIComponent(tl) + '/' +
+    encodeURIComponent(text.trim());
+  var res = await fetch(url);
+  if(!res.ok) throw new Error('Lingva HTTP ' + res.status);
+  var j = await res.json();
+  if(j && j.translation){
+    var result = j.translation.trim();
+    if(result) return result;
+  }
+  throw new Error('Lingva: empty result');
+}
+
+/* ── Fungsi utama dengan fallback otomatis ── */
+async function translateText(text, from, to){
+  if(!text || !text.trim() || from === to) return text;
+
+  /* API 1 — Google */
+  try{
+    var r1 = await _translateGoogle(text, from, to);
+    return decodeEntities(r1);
+  }catch(e1){
+    console.warn('[Translate] API 1 (Google) gagal:', e1.message, '— mencoba API 2…');
+  }
+
+  /* API 2 — LibreTranslate */
+  try{
+    var r2 = await _translateLibre(text, from, to);
+    return decodeEntities(r2);
+  }catch(e2){
+    console.warn('[Translate] API 2 (LibreTranslate) gagal:', e2.message, '— mencoba API 3…');
+  }
+
+  /* API 3 — Lingva */
+  try{
+    var r3 = await _translateLingva(text, from, to);
+    return decodeEntities(r3);
+  }catch(e3){
+    console.warn('[Translate] API 3 (Lingva) gagal:', e3.message, '— mengembalikan teks asli.');
+  }
+
+  /* Semua API gagal — kembalikan teks asli agar tidak crash */
+  return text;
+}
+
+function decodeEntities(str){
+  try{
+    var d = document.createElement('textarea');
+    d.innerHTML = str;
+    return d.value;
+  }catch(e){ return str; }
+}
+
+/* ════════════════════════════════════════════════════
+   RENDER BUBBLE
+════════════════════════════════════════════════════ */
+function renderBubble(o){
+  var log = document.getElementById('clog');
+  var emp = document.getElementById('empty');
+  if(emp) emp.parentNode.removeChild(emp);
+
+  var t = o.ts ? new Date(o.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '';
+  var name = o.isMine ? 'You' : (NAMES[o.senderLang]||o.senderLang||'Other');
+  var init = o.isMine ? 'ME' : (FLAGS[o.senderLang]||'?');
+
+  var div = document.createElement('div');
+  div.id = 'msg-'+o.key;
+  div.className = 'bub '+(o.isMine?'me':'they');
+  div.innerHTML =
+    '<div class="av">'+init+'</div>'+
+    '<div class="bc">'+
+      '<div class="bm">'+
+        '<span>'+name+'</span>'+
+        '<span class="tag">'+(FLAGS[o.senderLang]||'')+(NAMES[o.senderLang]||o.senderLang)+'</span>'+
+        '<span>'+t+'</span>'+
+      '</div>'+
+      '<div class="bo">'+esc(o.text)+'</div>'+
+      (o.translated?
+        '<div class="bt"><div class="btl">↳ '+(FLAGS[myLang]||'')+' '+(NAMES[myLang]||myLang)+'</div>'+esc(o.translated)+'</div>'
+        :'')+
+    '</div>';
+
+  log.appendChild(div);
+  requestAnimationFrame(function(){ log.scrollTop = log.scrollHeight; });
+}
+
+function esc(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function resetLog(){
+  document.getElementById('clog').innerHTML =
+    '<div class="empty" id="empty"><div class="ico">💬</div>Tap the mic and start speaking.<br/>Messages appear here instantly.</div>';
+}
+function clearLog(){ rendered.clear(); resetLog(); }
+
+/* ════════════════════════════════════════════════════
+   SPEECH RECOGNITION
+════════════════════════════════════════════════════ */
+function toggleMic(){
+  if(!room){ toast('Join a room first!','warn'); return; }
+  if(!SR_API){
+    toast('Speech Recognition not supported. Use Chrome or Safari.','err');
+    document.getElementById('browser-warn').classList.add('show');
+    return;
+  }
+  if(ttsPlaying){ toast('⏳ Wait for voice to finish…','warn'); return; }
+  listening ? stopListening() : startListening();
+}
+
+function startListening(){
+  if(recognition){
+    try{ recognition.abort(); }catch(e){}
+    recognition = null;
+  }
+
+  var rec = new SR_API();
+  recognition = rec;
+
+  rec.lang            = BCP47[myLang] || 'en-US';
+  rec.continuous      = true;
+  rec.interimResults  = true;
+  rec.maxAlternatives = 1;
+
+  rec.onstart = function(){
+    listening = true;
+    setMicUI(true);
+    document.getElementById('perm-banner').classList.remove('show');
+    toast('🎤 Listening…','inf');
+  };
+
+  rec.onresult = function(e){
+    var interim = '', final = '';
+    for(var i = e.resultIndex; i < e.results.length; i++){
+      var seg = e.results[i][0].transcript;
+      if(e.results[i].isFinal) final += seg;
+      else interim += seg;
+    }
+
+    var el = document.getElementById('interim');
+    if(interim){
+      el.textContent = interim;
+      el.classList.remove('hidden');
+      el.classList.add('show');
+      // Show as subtitle on local video tile
+      showLocalInterimSubtitle(interim);
+      // Broadcast interim text for remote subtitle
+      broadcastTyping(interim);
+    }
+
+    if(final.trim()){
+      el.classList.remove('show');
+      el.classList.add('hidden');
+      clearTimeout(debTimer);
+      var txt = final.trim();
+      // Show final text on local subtitle bar
+      showLocalFinalSubtitle(txt);
+      broadcastTyping('');  // clear typing
+      debTimer = setTimeout(function(){ sendMsg(txt); }, 300);
+    }
+  };
+
+  rec.onerror = function(e){
+    console.warn('[SR] error:', e.error);
+    if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){
+      document.getElementById('perm-banner').classList.add('show');
+      toast('🔒 Mic permission denied. See instructions above.','err');
+      listening = false;
+      setMicUI(false);
+      recognition = null;
+    } else if(e.error === 'no-speech'){
+      // silence, auto-restart
+    } else if(e.error === 'network'){
+      toast('Speech service network error. Check connection.','warn');
+    } else if(e.error === 'aborted'){
+      // intentional
+    } else {
+      toast('Speech error: '+e.error,'warn');
+    }
+  };
+
+  rec.onend = function(){
+    if(listening){
+      clearTimeout(restartTimer);
+      restartTimer = setTimeout(function(){
+        if(listening && recognition){
+          try{ recognition.start(); }
+          catch(e){ console.warn('[SR] restart fail:', e.message); }
+        }
+      }, 200);
+    } else {
+      setMicUI(false);
+    }
+  };
+
+  try{
+    rec.start();
+  }catch(e){
+    toast('Cannot start mic: '+e.message,'err');
+    listening = false;
+    setMicUI(false);
+  }
+}
+
+function stopListening(){
+  listening = false;
+  clearTimeout(restartTimer);
+  clearTimeout(debTimer);
+  setMicUI(false);
+
+  var el = document.getElementById('interim');
+  el.classList.remove('show');
+  el.classList.add('hidden');
+
+  if(recognition){
+    try{ recognition.abort(); }catch(e){}
+    recognition = null;
+  }
+  broadcastTyping('');
+}
+
+function setMicUI(on){
+  document.getElementById('mbtn').classList.toggle('on', on);
+  document.getElementById('mring').classList.toggle('on', on);
+  document.getElementById('wform').classList.toggle('on', on);
+  document.getElementById('mlbl').classList.toggle('on', on);
+  document.getElementById('mlbl').textContent = on ? 'LISTENING…' : 'TAP TO SPEAK';
+  document.getElementById('icon-on').classList.toggle('hidden', !on);
+  document.getElementById('icon-off').classList.toggle('hidden', on);
+  // Sync mic button inside call
+  updateCallMicBtn();
+}
+
+/* ════════════════════════════════════════════════════
+   TEXT-TO-SPEECH
+════════════════════════════════════════════════════ */
+function speakText(text, lang){
+  if(!window.speechSynthesis || !text) return;
+  try{
+    var mbtn = document.getElementById('mbtn');
+
+    wasListeningBeforeTTS = listening;
+    if(wasListeningBeforeTTS){ stopListening(); }
+
+    ttsPlaying    = true;
+    mbtn.disabled = true;
+
+    window.speechSynthesis.cancel();
+    var u    = new SpeechSynthesisUtterance(text);
+    u.lang   = BCP47[lang] || 'en-US';
+    u.rate   = 0.9;
+    u.pitch  = 1;
+    u.volume = 1;
+
+    function onTTSDone(){
+      ttsPlaying    = false;
+      mbtn.disabled = false;
+
+      if(wasListeningBeforeTTS){
+        clearTimeout(restartTimer);
+        restartTimer = setTimeout(function(){
+          if(!listening){ startListening(); }
+        }, 650);
+      }
+    }
+
+    u.onend   = onTTSDone;
+    u.onerror = function(e){
+      console.warn('[TTS] error:', e);
+      onTTSDone();
+    };
+
+    setTimeout(function(){ window.speechSynthesis.speak(u); }, 100);
+
+  }catch(e){
+    console.warn('[TTS]', e);
+    ttsPlaying = false;
+    document.getElementById('mbtn').disabled = false;
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   FIREBASE RECONNECT MONITOR
+════════════════════════════════════════════════════ */
+db.ref('.info/connected').on('value', function(s){
+  if(s.val()===true){
+    if(room){
+      db.ref('rooms/'+room+'/users/'+ME+'/online').set(true);
+    }
+  } else {
+    toast('Reconnecting…','warn');
+  }
+});
+
+/* ════════════════════════════════════════════════════
+   INPUT HELPERS
+════════════════════════════════════════════════════ */
+document.getElementById('join-id').addEventListener('input', function(){
+  this.value = this.value.toUpperCase().replace(/[^A-Z0-9\-]/g,'');
+});
+document.getElementById('join-id').addEventListener('keydown', function(e){
+  if(e.key==='Enter'){ e.preventDefault(); joinRoom(); }
+});
+
+function updateLangDisplay(){}
+
+document.getElementById('mbtn').addEventListener('touchend', function(e){
+  e.preventDefault();
+  toggleMic();
+}, {passive:false});
+
+
+/* ════════════════════════════════════════════════════
+   ████████████████████████████████████████████████
+   VIDEO CALL — FULL WEBRTC IMPLEMENTATION
+   ████████████████████████████████████████████████
+════════════════════════════════════════════════════ */
+
+/* ── Toggle video call ── */
+function toggleVideoCall(){
+  if(vcallActive) endVideoCall();
+  else startVideoCall();
+}
+
+/* ── Start video call ── */
+async function startVideoCall(){
+  if(!room){ toast('Join a room first!','warn'); return; }
+  if(vcallActive) return;
+
+  try{
+    toast('Starting camera…','inf');
+    localStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+  }catch(e){
+    // Try audio-only if camera fails
+    try{
+      localStream = await navigator.mediaDevices.getUserMedia({video:false, audio:true});
+      cameraOn = false;
+      toast('Camera unavailable, audio-only call','warn');
+    }catch(e2){
+      toast('Could not access camera/mic: '+e2.message,'err');
+      return;
+    }
+  }
+
+  vcallActive = true;
+  cameraOn    = localStream.getVideoTracks().length > 0 && localStream.getVideoTracks()[0].enabled;
+
+  // Show panel
+  document.getElementById('vcall-panel').classList.remove('hidden');
+  document.getElementById('vcall-toggle-btn').classList.add('active');
+  document.getElementById('vcall-toggle-btn').innerHTML =
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg> In Call';
+
+  // Build local tile
+  buildLocalTile();
+  updateVGrid();
+
+  // Announce presence in Firebase
+  var presPath = 'rooms/'+room+'/vcall/presence/'+ME;
+  db.ref(presPath).set({active:true, lang:myLang, ts:firebase.database.ServerValue.TIMESTAMP});
+  db.ref(presPath).onDisconnect().remove();
+
+  // Listen for other participants' presence
+  vcallPresRef = db.ref('rooms/'+room+'/vcall/presence');
+  vcallPresRef.on('child_added', function(snap){
+    var uid = snap.key;
+    var val = snap.val();
+    if(uid === ME || !val || !val.active) return;
+    // They are already in call — I am the new joiner, I call them
+    callPeer(uid, val.lang || 'en');
+  });
+  vcallPresRef.on('child_changed', function(snap){
+    var uid = snap.key;
+    var val = snap.val();
+    if(uid === ME) return;
+    if(!val || !val.active){
+      // peer left
+      removePeerTile(uid);
+    }
+  });
+  vcallPresRef.on('child_removed', function(snap){
+    removePeerTile(snap.key);
+  });
+
+  // Listen for offers directed to ME
+  vcallOfferRef = db.ref('rooms/'+room+'/vcall/offers/'+ME);
+  vcallOfferRef.on('child_added', async function(snap){
+    var fromId = snap.key;
+    var offer  = snap.val();
+    if(!offer || !offer.sdp) return;
+    await handleOffer(fromId, offer);
+  });
+
+  // Listen for answers directed to ME (I was the caller)
+  vcallAnsRef = db.ref('rooms/'+room+'/vcall/answers/'+ME);
+  vcallAnsRef.on('child_added', async function(snap){
+    var fromId = snap.key;
+    var answer = snap.val();
+    if(!answer || !answer.sdp) return;
+    await handleAnswer(fromId, answer);
+  });
+
+  // Listen for ICE candidates directed to ME
+  vcallIceRef = db.ref('rooms/'+room+'/vcall/ice/'+ME);
+  vcallIceRef.on('child_added', function(snap){
+    var fromId = snap.key;
+    snap.ref.on('child_added', function(candSnap){
+      var cand = candSnap.val();
+      if(!cand) return;
+      addIceCandidate(fromId, cand);
+    });
+  });
+
+  // Listen for remote typing/subtitles
+  typingRef = db.ref('rooms/'+room+'/vcall/typing');
+  typingRef.on('value', function(snap){
+    if(!snap.exists()) return;
+    var all = snap.val();
+    Object.keys(all).forEach(function(uid){
+      if(uid === ME) return;
+      var entry = all[uid];
+      if(entry && entry.text && subtitlesOn){
+        setTileInterimSubtitle(uid, entry.text);
+      }
+    });
+  });
+
+  updateCallMicBtn();
+  updateCamBtn();
+  updateSubBtn();
+  toast('📹 Video call started!','ok');
+}
+
+/* ── End video call ── */
+function endVideoCall(){
+  if(!vcallActive) return;
+  vcallActive = false;
+
+  // Close all peer connections
+  Object.keys(peers).forEach(function(uid){ closePeer(uid); });
+  peers = {};
+
+  // Stop local stream
+  if(localStream){
+    localStream.getTracks().forEach(function(t){ t.stop(); });
+    localStream = null;
+  }
+
+  // Clean up Firebase
+  if(room){
+    db.ref('rooms/'+room+'/vcall/presence/'+ME).remove();
+    db.ref('rooms/'+room+'/vcall/offers/'+ME).remove();
+    db.ref('rooms/'+room+'/vcall/answers/'+ME).remove();
+    db.ref('rooms/'+room+'/vcall/ice/'+ME).remove();
+    db.ref('rooms/'+room+'/vcall/typing/'+ME).remove();
+  }
+  if(vcallPresRef){ vcallPresRef.off(); vcallPresRef=null; }
+  if(vcallOfferRef){ vcallOfferRef.off(); vcallOfferRef=null; }
+  if(vcallAnsRef){ vcallAnsRef.off(); vcallAnsRef=null; }
+  if(vcallIceRef){ vcallIceRef.off(); vcallIceRef=null; }
+  if(typingRef){ typingRef.off(); typingRef=null; }
+
+  // Reset UI
+  document.getElementById('vgrid').innerHTML = '';
+  document.getElementById('vcall-panel').classList.add('hidden');
+  document.getElementById('sub-bar').classList.remove('show');
+  document.getElementById('vcall-toggle-btn').classList.remove('active');
+  document.getElementById('vcall-toggle-btn').innerHTML =
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg> Video';
+
+  toast('Call ended','inf');
+}
+
+/* ── Create RTCPeerConnection ── */
+function createPC(peerId, peerLang){
+  var pc = new RTCPeerConnection({iceServers: ICE_SERVERS});
+
+  // Add local tracks
+  if(localStream){
+    localStream.getTracks().forEach(function(t){ pc.addTrack(t, localStream); });
+  }
+
+  // ICE candidate → Firebase
+  pc.onicecandidate = function(e){
+    if(!e.candidate) return;
+    db.ref('rooms/'+room+'/vcall/ice/'+peerId+'/'+ME).push(e.candidate.toJSON());
+  };
+
+  // Remote track arrives
+  pc.ontrack = function(e){
+    if(!peers[peerId]) return;
+    peers[peerId].remoteStream = e.streams[0] || new MediaStream([e.track]);
+    var vid = document.getElementById('vtile-video-'+peerId);
+    if(vid){
+      vid.srcObject = peers[peerId].remoteStream;
+      // Show video, hide placeholder
+      var placeholder = document.getElementById('vcam-off-'+peerId);
+      if(placeholder) placeholder.style.display = 'none';
+      vid.style.display = 'block';
+    }
+  };
+
+  // Connection state changes
+  pc.onconnectionstatechange = function(){
+    var state = pc.connectionState;
+    if(state === 'connected'){
+      var tile = document.getElementById('vtile-'+peerId);
+      if(tile) tile.classList.add('speaking');
+      setTimeout(function(){ if(tile) tile.classList.remove('speaking'); }, 1200);
+    }
+    if(state === 'failed' || state === 'disconnected' || state === 'closed'){
+      removePeerTile(peerId);
+    }
+  };
+
+  // Audio level detection for "speaking" glow
+  setupAudioMonitor(pc, peerId);
+
+  return pc;
+}
+
+/* ── Detect speaking via audio level ── */
+function setupAudioMonitor(pc, peerId){
+  try{
+    var ctx = new (window.AudioContext||window.webkitAudioContext)();
+    pc.ontrack = (function(origOntrack){
+      return function(e){
+        if(origOntrack) origOntrack.call(pc, e);
+        if(e.track.kind !== 'audio') return;
+        var stream = e.streams[0] || new MediaStream([e.track]);
+        var src    = ctx.createMediaStreamSource(stream);
+        var analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        src.connect(analyser);
+        var data = new Uint8Array(analyser.frequencyBinCount);
+        var tick = setInterval(function(){
+          if(!peers[peerId]){ clearInterval(tick); return; }
+          analyser.getByteFrequencyData(data);
+          var avg = data.reduce(function(a,b){return a+b;},0)/data.length;
+          var tile = document.getElementById('vtile-'+peerId);
+          if(tile) tile.classList.toggle('speaking', avg > 10);
+        }, 120);
+        peers[peerId]._speakTick = tick;
+      };
+    })(pc.ontrack);
+  }catch(ignore){}
+}
+
+/* ── Caller: create offer ── */
+async function callPeer(peerId, peerLang){
+  if(peers[peerId]) return;  // already connected
+
+  var pc = createPC(peerId, peerLang);
+  peers[peerId] = {pc:pc, remoteStream:null, lang:peerLang};
+  buildRemoteTile(peerId, peerLang);
+  updateVGrid();
+
+  try{
+    var offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await db.ref('rooms/'+room+'/vcall/offers/'+peerId+'/'+ME).set({
+      sdp: offer.sdp, type: offer.type, lang: myLang
+    });
+  }catch(e){
+    toast('Offer failed: '+e.message,'err');
+  }
+}
+
+/* ── Callee: handle offer, send answer ── */
+async function handleOffer(fromId, offer){
+  if(peers[fromId]) return;
+
+  var peerLang = offer.lang || 'en';
+  var pc = createPC(fromId, peerLang);
+  peers[fromId] = {pc:pc, remoteStream:null, lang:peerLang};
+  buildRemoteTile(fromId, peerLang);
+  updateVGrid();
+
+  try{
+    await pc.setRemoteDescription({sdp:offer.sdp, type:offer.type});
+    var answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    await db.ref('rooms/'+room+'/vcall/answers/'+fromId+'/'+ME).set({
+      sdp: answer.sdp, type: answer.type
+    });
+  }catch(e){
+    toast('Answer failed: '+e.message,'err');
+  }
+}
+
+/* ── Caller receives answer ── */
+async function handleAnswer(fromId, answer){
+  var peer = peers[fromId];
+  if(!peer || !peer.pc) return;
+  if(peer.pc.signalingState === 'stable') return;
+  try{
+    await peer.pc.setRemoteDescription({sdp:answer.sdp, type:answer.type});
+  }catch(e){
+    console.warn('[WebRTC] setRemoteDescription answer failed:', e);
+  }
+}
+
+/* ── Add ICE candidate ── */
+async function addIceCandidate(fromId, cand){
+  var peer = peers[fromId];
+  if(!peer || !peer.pc) return;
+  try{
+    await peer.pc.addIceCandidate(new RTCIceCandidate(cand));
+  }catch(e){
+    console.warn('[WebRTC] addIceCandidate failed:', e);
+  }
+}
+
+/* ── Close peer connection ── */
+function closePeer(uid){
+  var peer = peers[uid];
+  if(!peer) return;
+  if(peer._speakTick) clearInterval(peer._speakTick);
+  try{ peer.pc.close(); }catch(e){}
+  delete peers[uid];
+}
+
+/* ══ VIDEO TILE BUILDERS ══ */
+
+function buildLocalTile(){
+  var grid = document.getElementById('vgrid');
+  if(document.getElementById('vtile-local')) return;
+
+  var tile = document.createElement('div');
+  tile.className = 'vtile local';
+  tile.id = 'vtile-local';
+
+  var hasVideo = localStream && localStream.getVideoTracks().length > 0;
+
+  tile.innerHTML =
+    // Cam-off placeholder
+    '<div class="vcam-off" id="vcam-off-local" style="'+(hasVideo?'display:none':'')+'">'+
+      '<div class="vcam-av">ME</div>'+
+      '<div class="vcam-name">You ('+(NAMES[myLang]||myLang)+')</div>'+
+    '</div>'+
+    // Video element
+    '<video id="vtile-video-local" autoplay muted playsinline style="'+(hasVideo?'':'display:none')+'"></video>'+
+    // Overlay
+    '<div class="vtile-overlay">'+
+      '<span class="vtile-name">You</span>'+
+      '<span class="vtile-lang">'+(FLAGS[myLang]||'')+' '+(NAMES[myLang]||myLang)+'</span>'+
+    '</div>'+
+    // Subtitles
+    '<div class="vsub" id="vsub-local"></div>';
+
+  grid.appendChild(tile);
+
+  var vid = document.getElementById('vtile-video-local');
+  if(localStream && hasVideo){
+    vid.srcObject = localStream;
+  }
+}
+
+function buildRemoteTile(uid, lang){
+  var grid = document.getElementById('vgrid');
+  if(document.getElementById('vtile-'+uid)) return;
+
+  var langName = NAMES[lang]||lang;
+  var langFlag = FLAGS[lang]||'';
+  var initial  = langFlag || langName.substring(0,2).toUpperCase();
+
+  var tile = document.createElement('div');
+  tile.className = 'vtile remote';
+  tile.id = 'vtile-'+uid;
+
+  tile.innerHTML =
+    '<div class="vcam-off" id="vcam-off-'+uid+'">'+
+      '<div class="vcam-av remote-av">'+initial+'</div>'+
+      '<div class="vcam-name">'+langFlag+' '+langName+'</div>'+
+    '</div>'+
+    '<video id="vtile-video-'+uid+'" autoplay playsinline style="display:none"></video>'+
+    '<div class="vtile-overlay">'+
+      '<span class="vtile-name">'+langName+'</span>'+
+      '<span class="vtile-lang">'+langFlag+' '+langName+'</span>'+
+    '</div>'+
+    '<div class="vsub" id="vsub-'+uid+'"></div>';
+
+  grid.appendChild(tile);
+}
+
+function removePeerTile(uid){
+  closePeer(uid);
+  var tile = document.getElementById('vtile-'+uid);
+  if(tile) tile.parentNode.removeChild(tile);
+  updateVGrid();
+  updateVCallCount();
+}
+
+/* ── Update grid layout class based on tile count ── */
+function updateVGrid(){
+  var grid = document.getElementById('vgrid');
+  var tiles = grid.querySelectorAll('.vtile').length;
+  grid.className = 'vgrid p'+(tiles<=1?'1':tiles===2?'2':tiles===3?'3':'4');
+  updateVCallCount();
+}
+
+function updateVCallCount(){
+  var n = document.getElementById('vgrid').querySelectorAll('.vtile').length;
+  var el = document.getElementById('vc-count');
+  if(el) el.textContent = n+' participant'+(n!==1?'s':'');
+}
+
+/* ══ CAMERA TOGGLE ══ */
+function toggleCamera(){
+  if(!localStream) return;
+  var vTracks = localStream.getVideoTracks();
+  if(vTracks.length === 0){ toast('No camera available','warn'); return; }
+  cameraOn = !cameraOn;
+  vTracks.forEach(function(t){ t.enabled = cameraOn; });
+
+  var localVid     = document.getElementById('vtile-video-local');
+  var localCamOff  = document.getElementById('vcam-off-local');
+  if(localVid)    localVid.style.display    = cameraOn ? 'block' : 'none';
+  if(localCamOff) localCamOff.style.display = cameraOn ? 'none'  : 'flex';
+
+  updateCamBtn();
+}
+
+function updateCamBtn(){
+  var btn = document.getElementById('vc-cam-btn');
+  if(!btn) return;
+  if(cameraOn){
+    btn.className = 'vc-btn cam';
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Camera';
+  } else {
+    btn.className = 'vc-btn cam off';
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M21 21H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3m3-3h6l2 3h4a2 2 0 0 1 2 2v9.34"/></svg> Cam Off';
+  }
+}
+
+/* ══ MIC IN CALL ══ */
+function toggleMicInCall(){
+  // Toggle main mic (speech recognition)
+  toggleMic();
+}
+
+function updateCallMicBtn(){
+  var btn = document.getElementById('vc-mic-btn');
+  if(!btn) return;
+  if(listening){
+    btn.className = 'vc-btn mic-vc';
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg> Mic';
+  } else {
+    btn.className = 'vc-btn mic-vc off';
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg> Muted';
+  }
+}
+
+/* ══ SUBTITLES TOGGLE ══ */
+function toggleSubtitles(){
+  subtitlesOn = !subtitlesOn;
+  updateSubBtn();
+  if(!subtitlesOn){
+    document.getElementById('sub-bar').classList.remove('show');
+    // Clear all tile subtitles
+    document.querySelectorAll('.vsub').forEach(function(el){ el.innerHTML=''; });
+  }
+  toast(subtitlesOn ? '📝 Subtitles ON' : '📝 Subtitles OFF', 'inf');
+}
+
+function updateSubBtn(){
+  var btn = document.getElementById('vc-sub-btn');
+  if(!btn) return;
+  btn.className = 'vc-btn sub-toggle'+(subtitlesOn?'':' off');
+  btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 15h3m4 0h3"/><path d="M7 11h10"/></svg> Subtitles '+(subtitlesOn?'ON':'OFF');
+}
+
+/* ══════════════════════════════════════════════
+   SUBTITLE SYSTEM
+══════════════════════════════════════════════ */
+
+/* Broadcast my typing/interim to Firebase */
+var broadcastTimer = null;
+function broadcastTyping(text){
+  if(!room || !vcallActive) return;
+  clearTimeout(broadcastTimer);
+  if(!text){
+    db.ref('rooms/'+room+'/vcall/typing/'+ME).remove();
+    return;
+  }
+  broadcastTimer = setTimeout(function(){
+    db.ref('rooms/'+room+'/vcall/typing/'+ME).set({text:text, ts:Date.now()});
+  }, 80);
+}
+
+/* Show my own interim speech as subtitle on local tile */
+function showLocalInterimSubtitle(text){
+  if(!vcallActive || !subtitlesOn) return;
+  var vsub = document.getElementById('vsub-local');
+  if(!vsub) return;
+  vsub.innerHTML = '<div class="vsub-text interim-sub">'+esc(text)+'</div>';
+  // Update global sub bar
+  document.getElementById('sub-bar').classList.add('show');
+  document.getElementById('sub-orig-text').textContent = text;
+  document.getElementById('sub-trans-text').style.display = 'none';
+}
+
+/* Show my final utterance on local tile */
+var localSubTimer = null;
+function showLocalFinalSubtitle(text){
+  if(!vcallActive || !subtitlesOn) return;
+  var vsub = document.getElementById('vsub-local');
+  if(!vsub) return;
+  vsub.innerHTML = '<div class="vsub-text original">'+esc(text)+'</div>';
+  document.getElementById('sub-bar').classList.add('show');
+  document.getElementById('sub-orig-text').textContent = text;
+  document.getElementById('sub-trans-text').style.display = 'none';
+  clearTimeout(localSubTimer);
+  localSubTimer = setTimeout(function(){
+    if(vsub) vsub.innerHTML='';
+    document.getElementById('sub-bar').classList.remove('show');
+  }, 5000);
+}
+
+/* Show remote tile subtitle: original + translated */
+function showRemoteSubtitle(uid, origText, translatedText, senderLang){
+  if(!vcallActive || !subtitlesOn) return;
+  var vsub = document.getElementById('vsub-'+uid);
+  if(!vsub) return;
+
+  var html = '<div class="vsub-text original">'+esc(origText)+'</div>';
+  if(translatedText && translatedText !== origText){
+    html += '<div class="vsub-text translated">'+esc(translatedText)+'</div>';
+  }
+  vsub.innerHTML = html;
+
+  // Update global subtitle bar
+  document.getElementById('sub-bar').classList.add('show');
+  document.getElementById('sub-orig-text').textContent = origText;
+  if(translatedText && translatedText !== origText){
+    document.getElementById('sub-trans-text').textContent = translatedText;
+    document.getElementById('sub-trans-text').style.display = 'block';
+  } else {
+    document.getElementById('sub-trans-text').style.display = 'none';
+  }
+
+  clearTimeout(subClearTimers[uid]);
+  subClearTimers[uid] = setTimeout(function(){
+    if(vsub) vsub.innerHTML = '';
+    document.getElementById('sub-bar').classList.remove('show');
+  }, 6000);
+}
+
+/* Show interim typing from remote user on their tile */
+var tileInterimTimers = {};
+function setTileInterimSubtitle(uid, text){
+  if(!subtitlesOn) return;
+  var vsub = document.getElementById('vsub-'+uid);
+  if(!vsub) return;
+  vsub.innerHTML = '<div class="vsub-text interim-sub">'+esc(text)+'</div>';
+  clearTimeout(tileInterimTimers[uid]);
+  tileInterimTimers[uid] = setTimeout(function(){
+    // Only clear if still showing the same (no final came in)
+    if(vsub && vsub.querySelector('.interim-sub')){
+      vsub.innerHTML = '';
+    }
+  }, 4000);
+}
+
+/* ══════════════════════════════════════════════
+   PREMIUM ACCESS GATE SYSTEM v3
+   - Device Fingerprint (SHA-256)
+   - Firebase users/{fingerprint}  →  type: premium/trial/accessCode
+   - Free Trial 24 jam (1x per device)
+   - Anti Incognito / Anti IP Spam
+   - Dynamic settings (adminContact, voucherEnabled)
+   - Trial expiry warning (< 3 jam)
+══════════════════════════════════════════════ */
+
+/* ════════════ GATE HELPERS ════════════ */
+function gateMsg(txt, type){
+  var el = document.getElementById('gate-msg');
+  el.textContent = txt;
+  el.className = type || '';
+}
+function showGateLoading(msg){
+  var el = document.getElementById('gate-loading');
+  document.getElementById('gate-loading-msg').textContent = msg || 'Memeriksa akses…';
+  el.classList.add('show');
+}
+function hideGateLoading(){ document.getElementById('gate-loading').classList.remove('show'); }
+function showGate(){ document.getElementById('access-gate').classList.add('show'); }
+function hideGate(){
+  var g = document.getElementById('access-gate');
+  g.style.animation = 'gateout .38s ease forwards';
+  setTimeout(function(){ g.classList.remove('show'); g.style.animation = ''; }, 390);
+}
+
+/* ════════════ SHA-256 ════════════ */
+async function sha256(str){
+  var buf = new TextEncoder().encode(str);
+  var h = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(h)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+}
+
+/* ════════════ CANVAS FINGERPRINT ════════════ */
+function getCanvasFingerprint(){
+  try{
+    var c = document.createElement('canvas'); c.width=200; c.height=50;
+    var ctx = c.getContext('2d');
+    ctx.textBaseline='top'; ctx.font="14px 'Arial'";
+    ctx.fillStyle='#00e5ff'; ctx.fillText('VoiceTranslator🔑', 2, 2);
+    ctx.fillStyle='rgba(124,58,237,.6)'; ctx.fillRect(60,10,60,20);
+    ctx.fillStyle='#fff'; ctx.fillText('fp', 62, 12);
+    return c.toDataURL().slice(-80);
+  }catch(e){ return 'nocanvas'; }
+}
+
+/* ════════════ BUILD FINGERPRINT ════════════ */
+async function buildFingerprint(){
+  var parts = [
+    navigator.userAgent,
+    screen.width+'x'+screen.height+'x'+screen.colorDepth,
+    Intl.DateTimeFormat().resolvedOptions().timeZone||'',
+    navigator.language||'',
+    navigator.platform||'',
+    getCanvasFingerprint(),
+    (navigator.hardwareConcurrency||0)+'',
+    (screen.availWidth||0)+'x'+(screen.availHeight||0)
+  ];
+  return await sha256(parts.join('||'));
+}
+
+/* ════════════ DETECT INCOGNITO ════════════ */
+async function detectIncognito(){
+  return new Promise(function(resolve){
+    if(!navigator.storage||!navigator.storage.estimate){ resolve(false); return; }
+    navigator.storage.estimate().then(function(e){ resolve(e.quota < 130*1024*1024); }).catch(function(){ resolve(false); });
+  });
+}
+
+/* ════════════ GET USER IP ════════════ */
+async function getUserIP(){
+  var apis = ['https://api.ipify.org?format=json','https://api64.ipify.org?format=json'];
+  for(var i=0;i<apis.length;i++){
+    try{
+      var r = await fetch(apis[i],{signal:AbortSignal.timeout(4000)});
+      var d = await r.json();
+      if(d.ip) return d.ip;
+    }catch(e){}
+  }
+  return 'unknown';
+}
+
+/* ════════════ ANTI IP SPAM ════════════ */
+async function checkIPSpam(ip){
+  if(ip==='unknown') return false;
+  try{
+    var key = await sha256(ip);
+    var date = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    var snap = await db.ref('ipTrials/'+date+'/'+key).once('value');
+    return (snap.val()||0) >= 5;
+  }catch(e){ return false; }
+}
+async function incrementIPTrial(ip){
+  if(ip==='unknown') return;
+  try{
+    var key = await sha256(ip);
+    var date = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    var ref = db.ref('ipTrials/'+date+'/'+key);
+    var snap = await ref.once('value');
+    await ref.set((snap.val()||0)+1);
+  }catch(e){}
+}
+
+/* ════════════ FIREBASE ACCESS ════════════ */
+async function checkFirebaseAccess(fp){
+  try{ return (await db.ref('users/'+fp).once('value')).val(); }catch(e){ return null; }
+}
+
+async function grantFirebaseAccess(fp, type, durationMs, extra){
+  var now = Date.now();
+  var expire = now + durationMs;
+  var data = { type:type, start:now, expire:expire, device:navigator.userAgent.slice(0,120), status:'active' };
+  if(type==='trial') data.trialUsed = true;
+  if(extra) Object.assign(data, extra);
+  await db.ref('users/'+fp).set(data);
+  return { fp:fp, type:type, start:now, expire:expire };
+}
+
+function updateLastSeen(fp){ try{ db.ref('users/'+fp+'/lastSeen').set(Date.now()); }catch(e){} }
+
+/* ════════════ LOAD SETTINGS ════════════ */
+var _siteSettings = { adminContact: '#', voucherEnabled: true };
+
+async function loadSiteSettings(){
+  try{
+    var snap = await db.ref('settings').once('value');
+    var s = snap.val();
+    if(s){
+      if(s.adminContact) _siteSettings.adminContact = s.adminContact;
+      if(typeof s.voucherEnabled !== 'undefined') _siteSettings.voucherEnabled = s.voucherEnabled;
+    }
+  }catch(e){}
+  applySettings();
+}
+
+function applySettings(){
+  // Update admin button href
+  var adminBtn = document.getElementById('admin-btn');
+  if(adminBtn){
+    var url = _siteSettings.adminContact;
+    if(url && url !== '#' && !url.startsWith('http')){
+      url = 'https://wa.me/' + url.replace(/\D/g,'') + '?text=Halo%20Admin%2C%20saya%20ingin%20akses%20premium%20Voice%20Translator';
+    }
+    adminBtn.href = url || '#';
+  }
+  // Show/hide voucher section based on voucherEnabled
+  applyVoucherEnabled(_siteSettings.voucherEnabled);
+}
+
+function applyVoucherEnabled(enabled){
+  var voucherSec = document.getElementById('voucher-section');
+  var voucherDis = document.getElementById('voucher-disabled-msg');
+  if(enabled){
+    if(voucherSec) voucherSec.style.display = '';
+    if(voucherDis) voucherDis.classList.remove('show');
+  } else {
+    if(voucherSec) voucherSec.style.display = 'none';
+    if(voucherDis) voucherDis.classList.add('show');
+  }
+}
+
+/* ════════════ EXPIRED STATE ════════════ */
+function showExpiredState(){
+  document.getElementById('gate-expired-screen').classList.add('show');
+  document.getElementById('gate-expired-banner').classList.add('show');
+  document.getElementById('trial-section').style.display = 'none';
+}
+
+/* ════════════ TRIAL EXPIRY WARNING ════════════ */
+var _trialWarningTimer  = null;
+var _trialCountdownTimer = null;
+var _trialWarningDismissed = false;
+
+function startTrialExpiryWatch(expireTs){
+  var THREE_HOURS = 3 * 60 * 60 * 1000;
+  var remaining = expireTs - Date.now();
+
+  if(remaining <= 0) return; // already expired
+
+  // If already within 3 hours, show immediately
+  if(remaining < THREE_HOURS){
+    showTrialWarning(expireTs);
+  } else {
+    // Schedule to show when < 3 hours remain
+    var delay = remaining - THREE_HOURS;
+    _trialWarningTimer = setTimeout(function(){ showTrialWarning(expireTs); }, delay);
+  }
+}
+
+function showTrialWarning(expireTs){
+  if(_trialWarningDismissed) return;
+  var bar = document.getElementById('trial-warning-bar');
+  if(!bar) return;
+  bar.classList.add('show');
+  // Adjust page top padding so content isn't hidden under bar
+  var barH = bar.offsetHeight || 56;
+  document.body.style.paddingTop = 'calc(' + barH + 'px + var(--safe-top, 0px))';
+  updateTrialCountdown(expireTs);
+  _trialCountdownTimer = setInterval(function(){
+    var left = expireTs - Date.now();
+    if(left <= 0){ clearInterval(_trialCountdownTimer); dismissTrialWarning(); return; }
+    updateTrialCountdown(expireTs);
+  }, 1000);
+}
+
+function updateTrialCountdown(expireTs){
+  var left = Math.max(0, expireTs - Date.now());
+  var h = Math.floor(left / 3600000);
+  var m = Math.floor((left % 3600000) / 60000);
+  var s = Math.floor((left % 60000) / 1000);
+  var el = document.getElementById('twb-countdown');
+  if(el) el.textContent = pad2(h)+':'+pad2(m)+':'+pad2(s);
+}
+
+function pad2(n){ return n.toString().padStart(2,'0'); }
+
+function dismissTrialWarning(){
+  _trialWarningDismissed = true;
+  clearInterval(_trialCountdownTimer);
+  var bar = document.getElementById('trial-warning-bar');
+  if(bar){
+    bar.style.transition='opacity .3s';
+    bar.style.opacity='0';
+    setTimeout(function(){
+      bar.classList.remove('show');
+      bar.style.opacity='';
+      document.body.style.paddingTop='';
+    }, 320);
+  }
+}
+
+/* ════════════ CLAIM TRIAL ════════════ */
+async function claimTrial(){
+  var btn = document.getElementById('trial-btn');
+  btn.disabled = true;
+  gateMsg('','');
+  showGateLoading('Mengecek kelayakan trial…');
+  try{
+    var incognito = await detectIncognito();
+    if(incognito){
+      hideGateLoading();
+      document.getElementById('gate-incognito').classList.add('show');
+      btn.disabled = false; return;
+    }
+    var fp = await buildFingerprint();
+    var existing = await checkFirebaseAccess(fp);
+    if(existing && existing.trialUsed){
+      hideGateLoading();
+      gateMsg('❌ Device ini sudah pernah menggunakan trial gratis. Gunakan voucher untuk akses.','err');
+      btn.disabled = false; return;
+    }
+    showGateLoading('Memverifikasi jaringan…');
+    var ip = await getUserIP();
+    if(await checkIPSpam(ip)){
+      hideGateLoading();
+      gateMsg('❌ Terlalu banyak trial dari jaringan ini. Coba lagi besok atau gunakan voucher.','err');
+      btn.disabled = false; return;
+    }
+    showGateLoading('Mengaktifkan trial…');
+    var ONE_DAY = 24*60*60*1000;
+    var result = await grantFirebaseAccess(fp,'trial',ONE_DAY,{ip:ip});
+    await incrementIPTrial(ip);
+    hideGateLoading();
+    gateMsg('✅ Trial 24 jam berhasil diaktifkan! Selamat datang.','ok');
+    setTimeout(function(){
+      hideGate();
+      startTrialExpiryWatch(result.expire);
+    }, 1200);
+  }catch(e){
+    hideGateLoading();
+    gateMsg('Error: '+e.message,'err');
+    btn.disabled = false;
+  }
+}
+
+/* ════════════ VERIFY VOUCHER ════════════ */
+async function verifyVoucher(){
+  if(!_siteSettings.voucherEnabled){
+    gateMsg('Penjualan voucher sedang ditutup oleh admin.','warn'); return;
+  }
+  var code = document.getElementById('gate-input').value.trim().toUpperCase();
+  if(!code){ gateMsg('Masukkan kode voucher terlebih dahulu.','err'); return; }
+
+  var btn = document.getElementById('gate-btn');
+  btn.disabled = true;
+  btn.textContent = 'Memverifikasi…';
+  gateMsg('','');
+  showGateLoading('Memverifikasi voucher…');
+
+  try{
+    var fp = await buildFingerprint();
+
+    /* ── Check vouchers/{code} directly (code is the key) ── */
+    var vsnap = await db.ref('vouchers/'+code).once('value');
+    var vdata = vsnap.val();
+
+    if(vdata){
+      // Voucher found
+      if(!vdata.active){
+        hideGateLoading(); gateMsg('Voucher ini tidak aktif.','err');
+        btn.disabled=false; btn.textContent='Verifikasi & Masuk'; return;
+      }
+      if(vdata.maxUse && (vdata.used||0) >= vdata.maxUse){
+        hideGateLoading(); gateMsg('Voucher ini sudah mencapai batas penggunaan.','err');
+        btn.disabled=false; btn.textContent='Verifikasi & Masuk'; return;
+      }
+      // Increment used counter atomically-ish
+      await db.ref('vouchers/'+code+'/used').set((vdata.used||0)+1);
+      var durationMs = (vdata.duration||30) * 24*60*60*1000;
+      await grantFirebaseAccess(fp, 'premium', durationMs, { voucher: code });
+      hideGateLoading();
+      gateMsg('✅ Akses premium aktif selama '+( vdata.duration||30)+' hari! Selamat datang.','ok');
+      setTimeout(function(){ hideGate(); }, 900);
+      return;
+    }
+
+    /* ── Fallback: check vouchers ordered by 'code' field ── */
+    var snap2 = await db.ref('vouchers').orderByChild('code').equalTo(code).once('value');
+    var found2 = null, foundKey2 = null;
+    snap2.forEach(function(child){ found2=child.val(); foundKey2=child.key; });
+
+    if(found2){
+      if(!found2.active){
+        hideGateLoading(); gateMsg('Voucher ini tidak aktif.','err');
+        btn.disabled=false; btn.textContent='Verifikasi & Masuk'; return;
+      }
+      if(found2.maxUse && (found2.used||0) >= found2.maxUse){
+        hideGateLoading(); gateMsg('Voucher ini sudah mencapai batas penggunaan.','err');
+        btn.disabled=false; btn.textContent='Verifikasi & Masuk'; return;
+      }
+      await db.ref('vouchers/'+foundKey2+'/used').set((found2.used||0)+1);
+      var dur2 = (found2.duration||30)*24*60*60*1000;
+      await grantFirebaseAccess(fp,'premium',dur2,{voucher:code});
+      hideGateLoading();
+      gateMsg('✅ Akses premium aktif selama '+(found2.duration||30)+' hari! Selamat datang.','ok');
+      setTimeout(function(){ hideGate(); }, 900);
+      return;
+    }
+
+    /* ── Fallback: accessCodes ── */
+    var asnap = await db.ref('accessCodes/'+code).once('value');
+    if(asnap.exists()){
+      var acode = asnap.val();
+      if(!acode.active){ hideGateLoading(); gateMsg('Kode akses ini sudah dinonaktifkan.','err'); btn.disabled=false; btn.textContent='Verifikasi & Masuk'; return; }
+      if(acode.expire && Date.now()>acode.expire){ hideGateLoading(); gateMsg('Kode akses ini sudah kadaluarsa.','err'); btn.disabled=false; btn.textContent='Verifikasi & Masuk'; return; }
+      var adur = (acode.duration||30)*24*60*60*1000;
+      await grantFirebaseAccess(fp,'premium',adur,{voucher:code});
+      hideGateLoading();
+      gateMsg('✅ Akses diberikan! Selamat datang.','ok');
+      setTimeout(function(){ hideGate(); }, 900);
+      return;
+    }
+
+    hideGateLoading();
+    gateMsg('❌ Kode tidak valid. Periksa kembali dan coba lagi.','err');
+    btn.disabled=false; btn.textContent='Verifikasi & Masuk';
+
+  }catch(e){
+    hideGateLoading();
+    gateMsg('Error: '+e.message,'err');
+    btn.disabled=false; btn.textContent='Verifikasi & Masuk';
+  }
+}
+
+/* ════════════ MAIN INIT ════════════ */
+(async function initAccessGate(){
+  showGate();
+  showGateLoading('Memeriksa akses device…');
+
+  // Load settings from Firebase in parallel
+  loadSiteSettings();
+
+  try{
+    var fp = await buildFingerprint();
+
+    // Show short fingerprint for support purposes
+    var fpShortEl = document.getElementById('gate-fp-short');
+    if(fpShortEl) fpShortEl.textContent = fp.slice(-8).toUpperCase();
+    var fpDisp = document.getElementById('gate-fp-display');
+    if(fpDisp) fpDisp.style.display = 'block';
+
+    var userData = await checkFirebaseAccess(fp);
+    hideGateLoading();
+
+    /* ── VALID ACCESS ── */
+    if(userData && userData.expire && Date.now() < userData.expire && userData.status === 'active'){
+      updateLastSeen(fp);
+      hideGate();
+      // Start trial warning watch if type is trial
+      if(userData.type === 'trial'){
+        startTrialExpiryWatch(userData.expire);
+      }
+      return;
+    }
+
+    /* ── EXPIRED ── */
+    if(userData && userData.expire && Date.now() >= userData.expire){
+      showExpiredState();
+      showGate();
+      try{ db.ref('users/'+fp+'/status').set('expired'); }catch(e){}
+      return;
+    }
+
+    /* ── NO ACCESS — show gate ── */
+    // Detect incognito silently
+    detectIncognito().then(function(incognito){
+      if(incognito){
+        document.getElementById('gate-incognito').classList.add('show');
+        document.getElementById('trial-section').style.display = 'none';
+      }
+    });
+    // Hide trial if already used
+    if(userData && userData.trialUsed){
+      document.getElementById('trial-section').style.display = 'none';
+    }
+
+    showGate();
+    document.getElementById('gate-input').addEventListener('keydown', function(e){
+      if(e.key==='Enter') verifyVoucher();
+    });
+
+  }catch(e){
+    hideGateLoading();
+    gateMsg('Gagal memeriksa akses: '+e.message+'. Coba refresh.','err');
+    showGate();
+  }
+})();
+
+// Gateout animation
+(function(){
+  var s = document.createElement('style');
+  s.textContent = '@keyframes gateout{from{opacity:1}to{opacity:0;pointer-events:none}}';
+  document.head.appendChild(s);
+})();
+
+</script>
+</body>
+</html>
