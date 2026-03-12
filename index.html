@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <title>Voice Translator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root{
+      --bg:#060a12;--s1:rgba(255,255,255,.03);--s2:rgba(255,255,255,.07);
+      --b1:rgba(255,255,255,.08);--b2:rgba(255,255,255,.15);
+      --cyan:#00e5ff;--purple:#7c3aed;--green:#10b981;
+      --txt:#e2e8f0;--mute:#64748b;--dim:#94a3b8;
+      --red:#ef4444;--amber:#f59e0b;--r:14px;
+      --safe-top:env(safe-area-inset-top,0px);
+      --safe-bot:env(safe-area-inset-bottom,0px);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    html,body{min-height:100%;-webkit-text-size-adjust:100%}
+    body{
+      font-family:'Syne',sans-serif;background:var(--bg);color:var(--txt);
+      overflow-x:hidden;position:relative;
+      padding-top:var(--safe-top);padding-bottom:var(--safe-bot);
+    }
+    body::before{
+      content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% -10%,rgba(0,229,255,.07) 0%,transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 110%,rgba(124,58,237,.08) 0%,transparent 60%);
+    }
+    .gbg{
+      position:fixed;inset:0;z-index:0;pointer-events:none;
+      background-image:linear-gradient(rgba(0,229,255,.025) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(0,229,255,.025) 1px,transparent 1px);
+      background-size:60px 60px;
+      -webkit-mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,#000 0%,transparent 100%);
+      mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,#000 0%,transparent 100%);
+    }
+    .page{position:relative;z-index:1;max-width:860px;margin:0 auto;padding:20px 16px 80px}
+
+    /* ── BROWSER WARN ── */
+    #browser-warn{
+      display:none;margin-bottom:16px;padding:14px 16px;
+      background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);
+      border-radius:12px;font-size:13px;font-family:'JetBrains Mono',monospace;
+      color:#fbbf24;line-height:1.6;
+    }
+    #browser-warn.show{display:block}
+    #browser-warn strong{color:#fde68a}
+
+    /* ── PERMISSION BANNER ── */
+    #perm-banner{
+      display:none;margin-bottom:16px;padding:14px 16px;
+      background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);
+      border-radius:12px;font-size:13px;font-family:'JetBrains Mono',monospace;
+      color:#fca5a5;line-height:1.6;
+    }
+    #perm-banner.show{display:block}
+    #perm-banner strong{display:block;margin-bottom:6px;font-size:14px;color:#f87171}
+
+    /* ── HEADER ── */
+    header{text-align:center;padding:36px 0 32px}
+    .logo{
+      width:48px;height:48px;border:1.5px solid var(--cyan);border-radius:14px;
+      display:grid;place-items:center;margin:0 auto 14px;
+      box-shadow:0 0 24px rgba(0,229,255,.3),inset 0 0 24px rgba(0,229,255,.05);
+      animation:logopulse 3s ease-in-out infinite;
+    }
+    @keyframes logopulse{
+      0%,100%{box-shadow:0 0 24px rgba(0,229,255,.3),inset 0 0 24px rgba(0,229,255,.05)}
+      50%{box-shadow:0 0 40px rgba(0,229,255,.5),inset 0 0 32px rgba(0,229,255,.1)}
+    }
+    header h1{
+      font-size:clamp(26px,6vw,42px);font-weight:800;letter-spacing:-1px;line-height:1.1;
+      background:linear-gradient(135deg,#fff 30%,var(--cyan) 65%,var(--purple) 100%);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    }
+    header p{margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--mute);letter-spacing:.06em}
+
+    /* ── CARD ── */
+    .card{
+      background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:24px;
+      -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+      transition:border-color .25s;
+    }
+    .card:hover{border-color:var(--b2)}
+    .ctitle{
+      font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:500;
+      letter-spacing:.14em;text-transform:uppercase;color:var(--cyan);
+      margin-bottom:18px;display:flex;align-items:center;gap:8px;
+    }
+    .ctitle::before{content:'';width:18px;height:1.5px;background:var(--cyan);flex-shrink:0}
+
+    /* ── FORM ── */
+    .stack{display:flex;flex-direction:column;gap:14px}
+    .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media(max-width:520px){.g2{grid-template-columns:1fr}}
+    .field{display:flex;flex-direction:column;gap:7px}
+    .lbl{font-size:10px;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+    input,select{
+      width:100%;padding:13px 14px;
+      background:rgba(255,255,255,.05);border:1px solid var(--b1);
+      border-radius:10px;color:var(--txt);font-family:'JetBrains Mono',monospace;
+      font-size:14px;outline:none;-webkit-appearance:none;appearance:none;
+      transition:border-color .2s,box-shadow .2s;
+      /* Fix iOS zoom on focus */
+      font-size:16px;
+    }
+    @media(min-width:480px){input,select{font-size:14px}}
+    input::placeholder{color:var(--mute)}
+    input:focus,select:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,229,255,.12)}
+    select{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:38px}
+    select option{background:#0f172a}
+
+    /* ── BUTTONS ── */
+    .btn{
+      display:inline-flex;align-items:center;justify-content:center;gap:8px;
+      padding:14px 22px;border-radius:10px;border:none;
+      font-family:'Syne',sans-serif;font-weight:700;font-size:14px;
+      letter-spacing:.02em;cursor:pointer;transition:all .18s;
+      -webkit-user-select:none;user-select:none;touch-action:manipulation;
+      position:relative;overflow:hidden;
+    }
+    .btn:active{transform:scale(.96)}
+    .btn:disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
+    .full{width:100%}
+    .bprimary{background:linear-gradient(135deg,var(--cyan),#0891b2);color:#000;box-shadow:0 4px 20px rgba(0,229,255,.25)}
+    .bprimary:hover{box-shadow:0 4px 30px rgba(0,229,255,.45)}
+    .bsecond{background:var(--s2);color:var(--txt);border:1px solid var(--b2)}
+    .bsecond:hover{background:rgba(255,255,255,.12)}
+    .bghost{background:transparent;color:var(--dim);border:1px solid var(--b1)}
+    .bghost:hover{border-color:var(--b2);color:var(--txt)}
+    .bdanger{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+    .bdanger:hover{background:rgba(239,68,68,.28)}
+
+    /* ── DIVIDER ── */
+    .div{display:flex;align-items:center;gap:14px;color:var(--mute);font-size:11px;font-family:'JetBrains Mono',monospace}
+    .div::before,.div::after{content:'';flex:1;height:1px;background:var(--b1)}
+
+    /* ── ROOM BADGE ── */
+    .rbadge{
+      display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
+      padding:14px 18px;background:rgba(0,229,255,.05);
+      border:1px solid rgba(0,229,255,.15);border-radius:12px;
+    }
+    .rbadge-l{display:flex;align-items:center;gap:12px}
+    .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:blink 2s ease-in-out infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+    .rid{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:500;color:var(--cyan);letter-spacing:.06em}
+    .langbadge{display:inline-flex;align-items:center;padding:4px 12px;background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);border-radius:20px;font-size:12px;color:#a78bfa;font-family:'JetBrains Mono',monospace}
+    .pcount{font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--mute)}
+
+    /* ── MIC AREA ── */
+    .mic-wrap{display:flex;flex-direction:column;align-items:center;padding:32px 20px 24px;gap:18px}
+    .mic-ring{position:relative;width:110px;height:110px;flex-shrink:0}
+    .mwave{
+      position:absolute;inset:-18px;border-radius:50%;
+      border:1.5px solid rgba(0,229,255,.18);
+      animation:ripple 2.6s ease-out infinite;opacity:0;pointer-events:none;
+    }
+    .mwave:nth-child(2){animation-delay:.85s}
+    .mwave:nth-child(3){animation-delay:1.7s}
+    @keyframes ripple{0%{transform:scale(.72);opacity:.55}100%{transform:scale(1.45);opacity:0}}
+    .mic-ring.on .mwave{border-color:rgba(0,229,255,.5)}
+    .mbtn{
+      position:relative;z-index:1;width:110px;height:110px;border-radius:50%;border:none;
+      background:linear-gradient(135deg,rgba(0,229,255,.14),rgba(124,58,237,.14));
+      border:1.5px solid var(--b2);cursor:pointer;display:grid;place-items:center;
+      transition:all .22s;box-shadow:0 0 30px rgba(0,229,255,.1);
+      touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+    }
+    .mbtn:hover{background:linear-gradient(135deg,rgba(0,229,255,.24),rgba(124,58,237,.24));transform:scale(1.04)}
+    .mbtn:active{transform:scale(.95)}
+    .mbtn.on{
+      background:linear-gradient(135deg,rgba(0,229,255,.28),rgba(124,58,237,.28));
+      border-color:var(--cyan);
+      box-shadow:0 0 55px rgba(0,229,255,.38),inset 0 0 22px rgba(0,229,255,.1);
+      animation:mpulse 1.3s ease-in-out infinite;
+    }
+    @keyframes mpulse{
+      0%,100%{box-shadow:0 0 55px rgba(0,229,255,.38),inset 0 0 22px rgba(0,229,255,.1)}
+      50%{box-shadow:0 0 75px rgba(0,229,255,.58),inset 0 0 32px rgba(0,229,255,.2)}
+    }
+    .mbtn svg{width:34px;height:34px;pointer-events:none}
+
+    /* ── WAVEFORM ── */
+    .wform{display:flex;align-items:center;gap:3px;height:34px;opacity:0;transition:opacity .3s}
+    .wform.on{opacity:1}
+    .wb{width:3px;background:var(--cyan);border-radius:2px;animation:wba .9s ease-in-out infinite}
+    .wb:nth-child(1){height:8px;animation-delay:0s}.wb:nth-child(2){height:20px;animation-delay:.1s}
+    .wb:nth-child(3){height:30px;animation-delay:.2s}.wb:nth-child(4){height:22px;animation-delay:.3s}
+    .wb:nth-child(5){height:14px;animation-delay:.4s}.wb:nth-child(6){height:28px;animation-delay:.5s}
+    .wb:nth-child(7){height:18px;animation-delay:.6s}.wb:nth-child(8){height:10px;animation-delay:.7s}
+    .wb:nth-child(9){height:26px;animation-delay:.05s}.wb:nth-child(10){height:12px;animation-delay:.15s}
+    @keyframes wba{0%,100%{transform:scaleY(.3);opacity:.5}50%{transform:scaleY(1);opacity:1}}
+
+    .mlbl{font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--mute);letter-spacing:.1em;text-align:center}
+    .mlbl.on{color:var(--cyan)}
+
+    /* ── INTERIM ── */
+    .interim{
+      width:100%;min-height:46px;padding:13px 16px;
+      background:rgba(0,229,255,.04);border:1px dashed rgba(0,229,255,.2);
+      border-radius:10px;font-family:'JetBrains Mono',monospace;
+      font-size:14px;color:var(--dim);font-style:italic;display:none;
+    }
+    .interim.show{display:block}
+
+    /* ── STATUS ROW ── */
+    .srow{
+      display:flex;align-items:center;gap:8px;
+      padding:10px 14px;border-radius:10px;
+      font-size:12px;font-family:'JetBrains Mono',monospace;
+    }
+    .srow.info{background:rgba(0,229,255,.06);border:1px solid rgba(0,229,255,.15);color:var(--cyan)}
+    .srow.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);color:#fbbf24}
+    .srow.err{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#fca5a5}
+
+    /* ── CONVERSATION ── */
+    .ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+    .clog{
+      display:flex;flex-direction:column;gap:12px;
+      max-height:420px;overflow-y:auto;padding-right:4px;
+      scroll-behavior:smooth;overscroll-behavior:contain;
+      -webkit-overflow-scrolling:touch;
+    }
+    .clog::-webkit-scrollbar{width:3px}
+    .clog::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+
+    /* ── BUBBLE ── */
+    .bub{display:flex;gap:12px;animation:sup .28s ease-out}
+    @keyframes sup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    .bub.me{flex-direction:row-reverse}
+    .av{width:32px;height:32px;flex-shrink:0;border-radius:9px;display:grid;place-items:center;font-size:13px;font-weight:700}
+    .me .av{background:rgba(0,229,255,.15);border:1px solid rgba(0,229,255,.3);color:var(--cyan)}
+    .they .av{background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);color:#a78bfa}
+    .bc{flex:1;max-width:88%}
+    .me .bc{display:flex;flex-direction:column;align-items:flex-end}
+    .bm{display:flex;align-items:center;gap:7px;margin-bottom:6px;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--mute)}
+    .me .bm{flex-direction:row-reverse}
+    .bo{padding:11px 14px;border-radius:11px;font-size:14px;line-height:1.55;max-width:100%;word-break:break-word}
+    .me .bo{background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.2);border-bottom-right-radius:3px}
+    .they .bo{background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.2);border-bottom-left-radius:3px}
+    .bt{
+      margin-top:5px;padding:9px 13px;border-radius:9px;font-size:13px;line-height:1.55;
+      font-family:'JetBrains Mono',monospace;color:var(--dim);
+      max-width:100%;word-break:break-word;
+      background:rgba(255,255,255,.03);border:1px solid var(--b1);
+    }
+    .btl{font-size:10px;color:var(--mute);letter-spacing:.08em;margin-bottom:3px}
+    .tag{padding:2px 7px;background:rgba(255,255,255,.05);border:1px solid var(--b1);border-radius:5px;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--mute)}
+
+    /* ── EMPTY ── */
+    .empty{text-align:center;padding:44px 20px;color:var(--mute);font-size:13px;font-family:'JetBrains Mono',monospace;line-height:1.7}
+    .empty .ico{font-size:34px;margin-bottom:12px;opacity:.35}
+
+    /* ── TOAST ── */
+    #toasts{position:fixed;bottom:max(24px,var(--safe-bot));right:16px;z-index:9999;display:flex;flex-direction:column;gap:9px;pointer-events:none;max-width:calc(100vw - 32px)}
+    .toast{
+      padding:11px 18px;border-radius:10px;font-size:12px;font-family:'JetBrains Mono',monospace;
+      -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+      animation:tin .25s ease,tout .3s ease 3.8s forwards;
+      pointer-events:auto;word-break:break-word;max-width:320px;
+    }
+    .toast.ok{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.35);color:#34d399}
+    .toast.err{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.35);color:#fca5a5}
+    .toast.inf{background:rgba(0,229,255,.1);border:1px solid rgba(0,229,255,.25);color:var(--cyan)}
+    .toast.warn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:#fbbf24}
+    @keyframes tin{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:translateX(0)}}
+    @keyframes tout{from{opacity:1}to{opacity:0;pointer-events:none}}
+
+    /* ── SPINNER ── */
+    .spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.2);border-top-color:currentColor;border-radius:50%;animation:spi .65s linear infinite;flex-shrink:0;display:inline-block}
+    @keyframes spi{to{transform:rotate(360deg)}}
+
+    /* UTILS */
+    .hidden{display:none!important}
+    .mt3{margin-top:12px}.mt4{margin-top:16px}
+    @media(max-width:420px){.page{padding:14px 12px 80px}.card{padding:18px 14px}}
+  </style>
+</head>
+<body>
+<div class="gbg"></div>
+<div id="toasts"></div>
+
+<div class="page">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00e5ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/>
+        <path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/>
+      </svg>
+    </div>
+    <h1>Voice Translator</h1>
+    <p>// realtime · multilingual · neural bridge</p>
+  </header>
+
+  <!-- BROWSER WARNING (shown for unsupported browsers) -->
+  <div id="browser-warn">
+    <strong>⚠️ Limited browser support detected</strong>
+    Voice recognition requires <strong>Chrome</strong> or <strong>Edge</strong> on Android/Desktop,
+    or <strong>Safari</strong> on iOS/macOS. Firefox does not support the Web Speech API.
+    <br/>Please switch to a supported browser for full functionality.
+  </div>
+
+  <!-- MIC PERMISSION BANNER (shown if permission denied) -->
+  <div id="perm-banner">
+    <strong>🔒 Microphone Permission Required</strong>
+    To fix this:<br/>
+    • <strong>Android Chrome:</strong> tap the lock 🔒 in address bar → Site settings → Microphone → Allow<br/>
+    • <strong>iOS Safari:</strong> Settings app → Safari → Microphone → Allow<br/>
+    • <strong>Desktop:</strong> click the 🔒 or 🎤 icon in the address bar → Allow microphone<br/>
+    Then refresh this page.
+  </div>
+
+  <!-- LOBBY -->
+  <div id="lobby" class="stack">
+    <div class="card">
+      <div class="ctitle">create session</div>
+      <div class="stack">
+        <div class="field">
+          <span class="lbl">your language</span>
+          <select id="cr-lang" onchange="updateLangDisplay()">
+            <option value="en">🇬🇧 English</option>
+            <option value="id">🇮🇩 Indonesian</option>
+            <option value="es">🇪🇸 Spanish</option>
+            <option value="fr">🇫🇷 French</option>
+            <option value="de">🇩🇪 German</option>
+            <option value="ja">🇯🇵 Japanese</option>
+            <option value="zh">🇨🇳 Chinese</option>
+            <option value="ar">🇸🇦 Arabic</option>
+            <option value="hi">🇮🇳 Hindi</option>
+            <option value="ko">🇰🇷 Korean</option>
+            <option value="ru">🇷🇺 Russian</option>
+          </select>
+        </div>
+        <button class="btn bprimary full" id="cr-btn" onclick="createRoom()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Create Room
+        </button>
+      </div>
+    </div>
+
+    <div class="div">or join existing</div>
+
+    <div class="card">
+      <div class="ctitle">join session</div>
+      <div class="stack">
+        <div class="g2">
+          <div class="field">
+            <span class="lbl">room id</span>
+            <input type="text" id="join-id" placeholder="ROOM-83472" maxlength="12" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"/>
+          </div>
+          <div class="field">
+            <span class="lbl">your language</span>
+            <select id="jn-lang">
+              <option value="en">🇬🇧 English</option>
+              <option value="id">🇮🇩 Indonesian</option>
+              <option value="es">🇪🇸 Spanish</option>
+              <option value="fr">🇫🇷 French</option>
+              <option value="de">🇩🇪 German</option>
+              <option value="ja">🇯🇵 Japanese</option>
+              <option value="zh">🇨🇳 Chinese</option>
+              <option value="ar">🇸🇦 Arabic</option>
+              <option value="hi">🇮🇳 Hindi</option>
+              <option value="ko">🇰🇷 Korean</option>
+              <option value="ru">🇷🇺 Russian</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn bsecond full" id="jn-btn" onclick="joinRoom()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          Join Room
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVE ROOM STATUS -->
+  <div id="room-status" class="hidden mt4">
+    <div class="rbadge">
+      <div class="rbadge-l">
+        <div class="dot"></div>
+        <div>
+          <div style="font-size:10px;color:var(--mute);font-family:'JetBrains Mono',monospace;letter-spacing:.08em;margin-bottom:2px">CONNECTED · ROOM</div>
+          <div class="rid" id="a-rid">—</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+        <span class="langbadge" id="a-lang">—</span>
+        <span class="pcount" id="a-peers">1 user</span>
+        <button class="btn bdanger" style="padding:9px 16px;font-size:13px" onclick="leaveRoom()">Leave</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TRANSLATOR -->
+  <div id="translator" class="hidden stack mt4">
+
+    <!-- MIC CARD -->
+    <div class="card">
+      <div class="mic-wrap">
+        <div class="mic-ring" id="mring">
+          <div class="mwave"></div>
+          <div class="mwave"></div>
+          <div class="mwave"></div>
+          <button class="mbtn" id="mbtn" onclick="toggleMic()" aria-label="Toggle microphone">
+            <!-- MIC ON icon -->
+            <svg id="icon-on" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+            <!-- MIC OFF icon -->
+            <svg id="icon-off" class="hidden" viewBox="0 0 24 24" fill="none" stroke="var(--mute)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="1" y1="1" x2="23" y2="23"/>
+              <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/>
+              <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/>
+              <line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+          </button>
+        </div>
+        <div class="wform" id="wform">
+          <div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div>
+          <div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div>
+          <div class="wb"></div><div class="wb"></div>
+        </div>
+        <div class="mlbl" id="mlbl">TAP TO SPEAK</div>
+      </div>
+      <div class="interim hidden" id="interim"></div>
+    </div>
+
+    <!-- CONVERSATION CARD -->
+    <div class="card">
+      <div class="ch">
+        <div class="ctitle" style="margin-bottom:0">conversation</div>
+        <button class="btn bghost" style="padding:7px 13px;font-size:12px" onclick="clearLog()">Clear</button>
+      </div>
+      <div class="clog" id="clog">
+        <div class="empty" id="empty">
+          <div class="ico">💬</div>
+          Tap the mic and start speaking.<br/>Messages appear here instantly.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div><!-- /page -->
+
+<!-- Firebase compat SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+<script>
+/* ════════════════════════════════════════════════════
+   FIREBASE INIT
+════════════════════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey:"AIzaSyAQVIvZvxmYdcriHR8j0ormGzNRjGD0_no",
+  authDomain:"online--suit.firebaseapp.com",
+  databaseURL:"https://online--suit-default-rtdb.firebaseio.com",
+  projectId:"online--suit",
+  storageBucket:"online--suit.firebasestorage.app",
+  messagingSenderId:"463840835705",
+  appId:"1:463840835705:web:f490fd49851c0afb8dfca8"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+/* ════════════════════════════════════════════════════
+   CONSTANTS
+════════════════════════════════════════════════════ */
+const NAMES = {en:'English',id:'Indonesian',es:'Spanish',fr:'French',de:'German',ja:'Japanese',zh:'Chinese',ar:'Arabic',hi:'Hindi',ko:'Korean',ru:'Russian'};
+const FLAGS = {en:'🇬🇧',id:'🇮🇩',es:'🇪🇸',fr:'🇫🇷',de:'🇩🇪',ja:'🇯🇵',zh:'🇨🇳',ar:'🇸🇦',hi:'🇮🇳',ko:'🇰🇷',ru:'🇷🇺'};
+const BCP47 = {en:'en-US',id:'id-ID',es:'es-ES',fr:'fr-FR',de:'de-DE',ja:'ja-JP',zh:'zh-CN',ar:'ar-SA',hi:'hi-IN',ko:'ko-KR',ru:'ru-RU'};
+
+/* ════════════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════════════ */
+const ME         = 'u_' + Math.random().toString(36).substr(2,9);
+let room         = null;
+let myLang       = 'en';
+let recognition  = null;
+let listening    = false;
+let msgRef       = null;
+let rendered     = new Set();
+let debTimer     = null;
+let joinTs       = 0;
+let restartTimer = null;
+
+/* ════════════════════════════════════════════════════
+   BROWSER COMPATIBILITY CHECK
+   Run on load — warn if SpeechRecognition missing
+════════════════════════════════════════════════════ */
+const SR_API = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+(function checkBrowser(){
+  if(!SR_API){
+    document.getElementById('browser-warn').classList.add('show');
+  }
+})();
+
+/* ════════════════════════════════════════════════════
+   TOAST
+════════════════════════════════════════════════════ */
+function toast(msg, type){
+  type = type||'inf';
+  var c = document.getElementById('toasts');
+  var el = document.createElement('div');
+  el.className = 'toast '+type;
+  el.textContent = msg;
+  c.appendChild(el);
+  setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 4300);
+}
+
+/* ════════════════════════════════════════════════════
+   ROOM — CREATE
+════════════════════════════════════════════════════ */
+function genId(){ return 'ROOM-'+Math.floor(10000+Math.random()*90000); }
+
+async function createRoom(){
+  var lang = document.getElementById('cr-lang').value;
+  myLang = lang;
+  var id = genId();
+  var btn = document.getElementById('cr-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spin"></div> Creating…';
+  try{
+    await db.ref('rooms/'+id).set({
+      created: firebase.database.ServerValue.TIMESTAMP,
+      users: {[ME]:{lang:lang,online:true,joined:firebase.database.ServerValue.TIMESTAMP}},
+      messages:{}
+    });
+    enterRoom(id, lang);
+    toast('Room '+id+' created!','ok');
+  }catch(e){
+    toast('Firebase error: '+e.message,'err');
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg> Create Room';
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   ROOM — JOIN
+════════════════════════════════════════════════════ */
+async function joinRoom(){
+  var id   = document.getElementById('join-id').value.trim().toUpperCase();
+  var lang = document.getElementById('jn-lang').value;
+  if(!id){ toast('Enter a Room ID first.','err'); return; }
+  var btn = document.getElementById('jn-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spin"></div> Joining…';
+  try{
+    var snap = await db.ref('rooms/'+id).once('value');
+    if(!snap.exists()){ toast('Room "'+id+'" not found.','err'); return; }
+    myLang = lang;
+    await db.ref('rooms/'+id+'/users/'+ME).set({lang:lang,online:true,joined:firebase.database.ServerValue.TIMESTAMP});
+    enterRoom(id, lang);
+    toast('Joined '+id+'!','ok');
+  }catch(e){
+    toast('Firebase error: '+e.message,'err');
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> Join Room';
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   ROOM — ENTER
+════════════════════════════════════════════════════ */
+function enterRoom(id, lang){
+  room    = id;
+  myLang  = lang;
+  joinTs  = Date.now();
+  rendered.clear();
+
+  // Update UI
+  document.getElementById('lobby').classList.add('hidden');
+  document.getElementById('room-status').classList.remove('hidden');
+  document.getElementById('translator').classList.remove('hidden');
+  document.getElementById('a-rid').textContent  = id;
+  document.getElementById('a-lang').textContent = (FLAGS[lang]||'')+' '+(NAMES[lang]||lang);
+
+  // Disconnect cleanup
+  db.ref('rooms/'+id+'/users/'+ME+'/online').onDisconnect().set(false);
+
+  // Live user count
+  db.ref('rooms/'+id+'/users').on('value', function(s){
+    if(!s.exists()) return;
+    var cnt = Object.values(s.val()).filter(function(u){return u.online;}).length;
+    document.getElementById('a-peers').textContent = cnt+' user'+(cnt!==1?'s':'');
+  });
+
+  // ── REAL-TIME MESSAGE LISTENER ──
+  if(msgRef){ msgRef.off(); }
+  msgRef = db.ref('rooms/'+id+'/messages');
+
+  // Use child_added directly — fires immediately for existing + new messages
+  msgRef.orderByChild('timestamp').on('child_added', async function(snap){
+    var key  = snap.key;
+    var data = snap.val();
+    if(!data || !data.text) return;               // skip empty/init nodes
+    if(rendered.has(key)) return;                 // skip duplicates
+    rendered.add(key);
+    // Skip messages that existed before we joined (older than joinTs by >2s)
+    if(data.timestamp && data.timestamp < joinTs - 2000) return;
+    await processMsg(key, data);
+  }, function(err){
+    toast('Listener error: '+err.message,'err');
+  });
+}
+
+/* ════════════════════════════════════════════════════
+   ROOM — LEAVE
+════════════════════════════════════════════════════ */
+function leaveRoom(){
+  if(!room) return;
+  if(listening) stopListening();
+  if(msgRef){ msgRef.off(); msgRef = null; }
+  db.ref('rooms/'+room+'/users/'+ME+'/online').set(false);
+  db.ref('rooms/'+room+'/users').off();
+  room = null;
+  rendered.clear();
+
+  document.getElementById('lobby').classList.remove('hidden');
+  document.getElementById('room-status').classList.add('hidden');
+  document.getElementById('translator').classList.add('hidden');
+  resetLog();
+}
+
+/* ════════════════════════════════════════════════════
+   PROCESS INCOMING MESSAGE
+════════════════════════════════════════════════════ */
+async function processMsg(key, data){
+  var isMine     = (data.sender === ME);
+  var senderLang = data.senderLang || myLang;
+  var translated = '';
+
+  if(senderLang !== myLang){
+    translated = await translateText(data.text, senderLang, myLang);
+  }
+
+  renderBubble({key:key, senderLang:senderLang, text:data.text, translated:translated, ts:data.timestamp, isMine:isMine});
+
+  if(!isMine && translated){
+    speakText(translated, myLang);
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   SEND MESSAGE
+════════════════════════════════════════════════════ */
+async function sendMsg(text){
+  if(!room || !text.trim()) return;
+  try{
+    await db.ref('rooms/'+room+'/messages').push({
+      sender:     ME,
+      senderLang: myLang,
+      text:       text.trim(),
+      timestamp:  firebase.database.ServerValue.TIMESTAMP
+    });
+  }catch(e){
+    toast('Send failed: '+e.message,'err');
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   TRANSLATION — MyMemory API
+════════════════════════════════════════════════════ */
+async function translateText(text, from, to){
+  if(!text || !text.trim() || from===to) return text;
+  try{
+    var url = 'https://api.mymemory.translated.net/get?q='+encodeURIComponent(text.trim())+'&langpair='+from+'|'+to;
+    var res = await fetch(url);
+    if(!res.ok) return text;
+    var j = await res.json();
+    if(j.responseStatus===200 && j.responseData && j.responseData.translatedText){
+      return decodeEntities(j.responseData.translatedText);
+    }
+    return text;
+  }catch(e){ return text; }
+}
+
+function decodeEntities(str){
+  try{
+    var d = document.createElement('textarea');
+    d.innerHTML = str;
+    return d.value;
+  }catch(e){ return str; }
+}
+
+/* ════════════════════════════════════════════════════
+   RENDER BUBBLE
+════════════════════════════════════════════════════ */
+function renderBubble(o){
+  var log = document.getElementById('clog');
+  var emp = document.getElementById('empty');
+  if(emp) emp.parentNode.removeChild(emp);
+
+  var t = o.ts ? new Date(o.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '';
+  var name = o.isMine ? 'You' : (NAMES[o.senderLang]||o.senderLang||'Other');
+  var init = o.isMine ? 'ME' : (FLAGS[o.senderLang]||'?');
+
+  var div = document.createElement('div');
+  div.id = 'msg-'+o.key;
+  div.className = 'bub '+(o.isMine?'me':'they');
+  div.innerHTML =
+    '<div class="av">'+init+'</div>'+
+    '<div class="bc">'+
+      '<div class="bm">'+
+        '<span>'+name+'</span>'+
+        '<span class="tag">'+(FLAGS[o.senderLang]||'')+(NAMES[o.senderLang]||o.senderLang)+'</span>'+
+        '<span>'+t+'</span>'+
+      '</div>'+
+      '<div class="bo">'+esc(o.text)+'</div>'+
+      (o.translated?
+        '<div class="bt"><div class="btl">↳ '+(FLAGS[myLang]||'')+' '+(NAMES[myLang]||myLang)+'</div>'+esc(o.translated)+'</div>'
+        :'')+
+    '</div>';
+
+  log.appendChild(div);
+  requestAnimationFrame(function(){ log.scrollTop = log.scrollHeight; });
+}
+
+function esc(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function resetLog(){
+  document.getElementById('clog').innerHTML =
+    '<div class="empty" id="empty"><div class="ico">💬</div>Tap the mic and start speaking.<br/>Messages appear here instantly.</div>';
+}
+function clearLog(){ rendered.clear(); resetLog(); }
+
+/* ════════════════════════════════════════════════════
+   SPEECH RECOGNITION
+   Strategy for cross-device / cross-browser:
+   1. NO pre-request getUserMedia — let the browser
+      handle permission via SpeechRecognition itself.
+   2. On Android Chrome, recognition prompts for mic
+      automatically on first .start() call.
+   3. On iOS Safari (14.1+), same behaviour.
+   4. Graceful fallback messages for Firefox.
+════════════════════════════════════════════════════ */
+function toggleMic(){
+  if(!room){ toast('Join a room first!','warn'); return; }
+  if(!SR_API){
+    toast('Speech Recognition not supported. Use Chrome or Safari.','err');
+    document.getElementById('browser-warn').classList.add('show');
+    return;
+  }
+  listening ? stopListening() : startListening();
+}
+
+function startListening(){
+  // Clean up any previous instance
+  if(recognition){
+    try{ recognition.abort(); }catch(e){}
+    recognition = null;
+  }
+
+  var rec = new SR_API();
+  recognition = rec;
+
+  rec.lang            = BCP47[myLang] || 'en-US';
+  rec.continuous      = true;
+  rec.interimResults  = true;
+  rec.maxAlternatives = 1;
+
+  rec.onstart = function(){
+    listening = true;
+    setMicUI(true);
+    // Hide permission banner if it was shown
+    document.getElementById('perm-banner').classList.remove('show');
+    toast('🎤 Listening…','inf');
+  };
+
+  rec.onresult = function(e){
+    var interim = '', final = '';
+    for(var i = e.resultIndex; i < e.results.length; i++){
+      var seg = e.results[i][0].transcript;
+      if(e.results[i].isFinal) final += seg;
+      else interim += seg;
+    }
+
+    var el = document.getElementById('interim');
+    if(interim){
+      el.textContent = interim;
+      el.classList.remove('hidden');
+      el.classList.add('show');
+    }
+
+    if(final.trim()){
+      el.classList.remove('show');
+      el.classList.add('hidden');
+      clearTimeout(debTimer);
+      var txt = final.trim();
+      debTimer = setTimeout(function(){ sendMsg(txt); }, 300);
+    }
+  };
+
+  rec.onerror = function(e){
+    console.warn('[SR] error:', e.error);
+    if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){
+      // Permission denied — show the guide banner
+      document.getElementById('perm-banner').classList.add('show');
+      toast('🔒 Mic permission denied. See instructions above.','err');
+      listening = false;
+      setMicUI(false);
+      recognition = null;
+    } else if(e.error === 'no-speech'){
+      // Normal silence — auto-restart will handle it
+    } else if(e.error === 'network'){
+      toast('Speech service network error. Check connection.','warn');
+    } else if(e.error === 'aborted'){
+      // Intentional, ignore
+    } else {
+      toast('Speech error: '+e.error,'warn');
+    }
+  };
+
+  rec.onend = function(){
+    // Auto-restart while user has mic toggled on
+    if(listening){
+      clearTimeout(restartTimer);
+      restartTimer = setTimeout(function(){
+        if(listening && recognition){
+          try{ recognition.start(); }
+          catch(e){ console.warn('[SR] restart fail:', e.message); }
+        }
+      }, 200);
+    } else {
+      setMicUI(false);
+    }
+  };
+
+  try{
+    rec.start();
+  }catch(e){
+    toast('Cannot start mic: '+e.message,'err');
+    listening = false;
+    setMicUI(false);
+  }
+}
+
+function stopListening(){
+  listening = false;
+  clearTimeout(restartTimer);
+  clearTimeout(debTimer);
+  setMicUI(false);
+
+  var el = document.getElementById('interim');
+  el.classList.remove('show');
+  el.classList.add('hidden');
+
+  if(recognition){
+    try{ recognition.abort(); }catch(e){}
+    recognition = null;
+  }
+}
+
+function setMicUI(on){
+  document.getElementById('mbtn').classList.toggle('on', on);
+  document.getElementById('mring').classList.toggle('on', on);
+  document.getElementById('wform').classList.toggle('on', on);
+  document.getElementById('mlbl').classList.toggle('on', on);
+  document.getElementById('mlbl').textContent = on ? 'LISTENING…' : 'TAP TO SPEAK';
+  document.getElementById('icon-on').classList.toggle('hidden', !on);
+  document.getElementById('icon-off').classList.toggle('hidden', on);
+}
+
+/* ════════════════════════════════════════════════════
+   TEXT-TO-SPEECH
+   Anti-feedback: pause SpeechRecognition while TTS
+   is speaking so the mic doesn't pick up the output
+   audio and re-send it as user speech.
+════════════════════════════════════════════════════ */
+function speakText(text, lang){
+  if(!window.speechSynthesis || !text) return;
+  try{
+    // ── 1. Capture mic state BEFORE stopping ──────────
+    var wasListening = listening;
+
+    // ── 2. Silence the mic so it won't hear TTS ───────
+    if(wasListening){ stopListening(); }
+
+    window.speechSynthesis.cancel();
+
+    var u    = new SpeechSynthesisUtterance(text);
+    u.lang   = BCP47[lang] || 'en-US';
+    u.rate   = 0.9;
+    u.pitch  = 1;
+    u.volume = 1;
+
+    // ── 3. Resume mic after TTS finishes ──────────────
+    // Extra 600 ms buffer lets the speaker/room acoustics
+    // settle so the first frame of the new recognition
+    // session doesn't accidentally catch TTS echo.
+    u.onend = function(){
+      if(wasListening){
+        clearTimeout(restartTimer);
+        restartTimer = setTimeout(function(){
+          // Only restart if the user hasn't manually
+          // toggled the mic off in the meantime
+          if(wasListening && !listening){
+            startListening();
+          }
+        }, 600);
+      }
+    };
+
+    // onerror guard: if TTS errors out, still restore mic
+    u.onerror = function(e){
+      console.warn('[TTS] error:', e);
+      if(wasListening && !listening){
+        clearTimeout(restartTimer);
+        restartTimer = setTimeout(startListening, 600);
+      }
+    };
+
+    // Android Chrome fix: delay speak slightly
+    setTimeout(function(){ window.speechSynthesis.speak(u); }, 100);
+  }catch(e){ console.warn('[TTS]',e); }
+}
+
+/* ════════════════════════════════════════════════════
+   FIREBASE RECONNECT MONITOR
+════════════════════════════════════════════════════ */
+db.ref('.info/connected').on('value', function(s){
+  if(s.val()===true){
+    if(room){
+      db.ref('rooms/'+room+'/users/'+ME+'/online').set(true);
+    }
+  } else {
+    toast('Reconnecting…','warn');
+  }
+});
+
+/* ════════════════════════════════════════════════════
+   INPUT HELPERS
+════════════════════════════════════════════════════ */
+document.getElementById('join-id').addEventListener('input', function(){
+  this.value = this.value.toUpperCase().replace(/[^A-Z0-9\-]/g,'');
+});
+document.getElementById('join-id').addEventListener('keydown', function(e){
+  if(e.key==='Enter'){ e.preventDefault(); joinRoom(); }
+});
+
+// Keep lang display in sync
+function updateLangDisplay(){}
+
+/* ════════════════════════════════════════════════════
+   ANDROID: Prevent page zoom on double-tap mic button
+════════════════════════════════════════════════════ */
+document.getElementById('mbtn').addEventListener('touchend', function(e){
+  e.preventDefault();
+  toggleMic();
+}, {passive:false});
+</script>
+</body>
+</html>
